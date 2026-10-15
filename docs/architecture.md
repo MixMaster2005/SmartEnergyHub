@@ -69,6 +69,20 @@ estimée) et détection simple de dépassement de seuil (`powerKw > maxPowerKw`)
 7. Après succès des écritures obligatoires → `XACK`.
 8. L'Analytics/API expose historique, dernière mesure, résumé et anomalies.
 
+### Test 2 minutes de la simulation (CDC §10.2)
+
+Simulation locale autonome (sans Collector ni HTTP) : 5 capteurs en continu pendant
+120 s, une mesure toutes les 2 s, avec un pic ×3 au milieu du test.
+
+```bash
+cd simulator
+python3 preview_measurements.py --sensors 5 --duration-seconds 120 \
+  --interval-seconds 2 --seed 42 --peak-at-second 60 --peak-duration 10
+```
+
+Attendu : 300 mesures (5 capteurs × 60 cycles), pic ×3 sur `SENSOR-001` entre t=60 s et
+t=70 s, fin `CONTRAT VALIDE`. Détails dans `docs/tests.md` (§3).
+
 ## 5. Choix de simplification (équipe de 4)
 
 - On garde les responsabilités logiques distinctes mais **3 services applicatifs** :

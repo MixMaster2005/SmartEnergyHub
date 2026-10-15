@@ -19,7 +19,7 @@ Les résultats doivent être **réels** et conservés dans `preuves/`.
 | T11 — doublon | Rejouer un même `eventId`. | Pas de double comptage. |
 | T12 — Compose | Démarrer la stack via la commande documentée. | Dépendances disponibles, services connectés. |
 | T13 — OpenAPI | Ouvrir Swagger UI, exécuter les routes. | Routes/paramètres/réponses compréhensibles. |
-| T14 — bout en bout | 5 capteurs ≥ 2 min + pic, consulter historique/anomalies. | Chaîne démontrée de bout en bout. |
+| T14 — bout en bout | 5 capteurs ≥ 2 min + pic (commande en §3, « Test 2 minutes »), consulter historique/anomalies. | Chaîne démontrée de bout en bout. |
 
 ## 2. Niveaux de tests
 
@@ -44,6 +44,21 @@ docker exec smartenergy-cassandra cqlsh -e "SELECT * FROM smartenergy.measuremen
 docker exec smartenergy-mongodb mongosh -u root -p root_dev --authenticationDatabase admin \
   --eval "db.getSiblingDB('smartenergy').sensors.find().pretty()"
 ```
+
+### Test 2 minutes (simulation seule, CDC §10.2 — T14)
+
+Simulation locale autonome (sans Collector ni HTTP) : 5 capteurs en continu pendant
+120 s, une mesure toutes les 2 s, avec un pic ×3 au milieu du test.
+
+```bash
+cd simulator
+python3 preview_measurements.py --sensors 5 --duration-seconds 120 \
+  --interval-seconds 2 --seed 42 --peak-at-second 60 --peak-duration 10
+```
+
+Attendu : **300 mesures** (5 capteurs × 60 cycles) imprimées en continu, pic ×3 sur
+`SENSOR-001` entre t=60 s et t=70 s, fin `CONTRAT VALIDE`. Preuve :
+`preuves/tests/` (sortie console ci-dessus).
 
 ## 4. Jeux de données de référence
 

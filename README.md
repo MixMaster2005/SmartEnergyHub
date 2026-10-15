@@ -77,6 +77,30 @@ pip install -r requirements.txt
 SIMULATOR_COLLECTOR_URL=http://localhost:8081/api/measurements python3 simulator.py
 ```
 
+### 3.6 Aperçu autonome de la simulation (sans Collector)
+
+`preview_measurements.py` est un fichier **indépendant** (stdlib uniquement, aucun envoi
+HTTP) qui génère puis imprime les mesures simulées en JSON pour vérifier localement la
+première partie (simulation des capteurs). Formule (CDC 10.1) :
+`Pt = Pbase + A·sin(2π·t/T) + εt`.
+
+```bash
+python3 simulator/preview_measurements.py                      # aperçu : 5 capteurs x 3 cycles
+python3 simulator/preview_measurements.py --sensors 5 --ticks 3 --seed 42
+python3 simulator/preview_measurements.py --ticks 5 --peak-every 3   # force un pic
+python3 simulator/preview_measurements.py --json               # sortie JSON brute
+
+# Test CDC 10.2 : 5 capteurs en continu pendant 2 min, pic au milieu
+python3 simulator/preview_measurements.py --sensors 5 --duration-seconds 120 \
+  --interval-seconds 2 --seed 42 --peak-at-second 60 --peak-duration 10
+```
+
+Paramètres de la formule : `--amplitude` (A, défaut 0.5), `--period-seconds` (T, défaut 120),
+`--noise` (εt, défaut 0.2), `--peak-factor` (défaut 3). En mode `--duration-seconds`, la
+sortie est imprimée en continu (une ligne par mesure) et un récapitulatif `TOTAL:` est
+affiché à la fin. Chaque mesure est validée contre `docs/contrat-mesure.md` ; le code de
+sortie est non nul si une mesure est non conforme.
+
 ## 4. Vérifications rapides
 
 ```bash
@@ -126,7 +150,7 @@ Kafka/Spark, Kubernetes, Prometheus/Grafana.
 
 - [x] Arborescence, configuration externe, Docker Compose (infra + profils + limites).
 - [x] Squelettes Spring Boot compilables (Collector, Storage, Analytics + OpenAPI).
-- [x] Simulateur Python.
+- [x] Simulateur Python + aperçu autonome (`preview_measurements.py`).
 - [x] Schéma Cassandra + jeux de données d'exemple.
 - [x] Documentation (`docs/`).
 - [ ] Contrôleurs/validation métier (Collector).
