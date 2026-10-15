@@ -1,0 +1,54 @@
+{
+  "measurements": [
+    {
+      "sensorId": "SENSOR-001",
+      "timestamp": "2026-09-30T08:15:00Z",
+      "powerKw": 3.72,
+      "voltage": 226.4,
+      "temperature": 29.1
+    },
+    {
+      "sensorId": "SENSOR-002",
+      "timestamp": "2026-09-30T08:15:02Z",
+      "powerKw": 4.10,
+      "voltage": 228.0,
+      "temperature": 27.5
+    },
+    {
+      "sensorId": "SENSOR-003",
+      "timestamp": "2026-09-30T08:15:04Z",
+      "powerKw": 7.85,
+      "voltage": 224.1,
+      "temperature": 31.2
+    }
+  ],
+  "sensors": [
+    {
+      "sensorId": "SENSOR-001",
+      "name": "Compteur salle serveur",
+      "building": "Batiment A",
+      "floor": 1,
+      "maxPowerKw": 8.0,
+      "active": true,
+      "tags": ["critical", "server-room"]
+    },
+    {
+      "sensorId": "SENSOR-002",
+      "name": "Compteur atelier",
+      "building": "Batiment B",
+      "floor": 0,
+      "maxPowerKw": 5.0,
+      "active": true,
+      "tags": ["workshop"]
+    },
+    {
+      "sensorId": "SENSOR-003",
+      "name": "Compteur climatisation",
+      "building": "Batiment A",
+      "floor": 2,
+      "maxPowerKw": 6.0,
+      "active": true,
+      "tags": ["hvac"]
+    }
+  ]
+}
