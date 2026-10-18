@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: collector-service
+  jackson:
+    default-property-inclusion: non_null
+    mapper:
+      allow-coercion-of-scalars: false   # pas de coercition "3.72" -> 3.72 (CDC 5.2)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:change-me}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,redis
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+
+smartenergy:
+  measurement:
+    max-age: ${MEASUREMENT_MAX_AGE:PT24H}
+    max-future: ${MEASUREMENT_MAX_FUTURE:PT5M}
+  stream:
+    name: ${STREAM_NAME:energy-measurements}
+    max-len: ${STREAM_MAXLEN:500000}
