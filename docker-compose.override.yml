@@ -1,0 +1,10 @@
+# Charge AUTOMATIQUEMENT par "docker compose up" : DEVELOPPEMENT UNIQUEMENT.
+# Publie les ports des bases pour lancer les services depuis l'IDE et utiliser redis-cli, mongosh, cqlsh.
+# En "production" : docker compose -f docker-compose.yml up -d   (aucune base exposee)
+services:
+  redis:
+    ports: ["6379:6379"]
+  mongo:
+    ports: ["27017:27017"]
+  cassandra:
+    ports: ["9042:9042"]

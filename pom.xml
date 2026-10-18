@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Spring Boot 3.5.x : passer a la derniere version 3.5.x au demarrage du projet, puis la figer ici. -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.smartenergy</groupId>
+  <artifactId>smartenergy-hub</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>SmartEnergy Hub (parent)</name>
+  <description>Plateforme Big Data et IA de supervision energetique distribuee</description>
+
+  <properties>
+    <java.version>17</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Hors BOM Spring Boot : a verifier a l'integration -->
+    <springdoc.version>2.8.6</springdoc.version>
+    <resilience4j.version>2.2.0</resilience4j.version>
+  </properties>
+
+  <modules>
+    <module>contracts/common-contracts</module>
+    <module>contracts/error-contracts</module>
+    <module>contracts/measurement-contracts</module>
+    <module>contracts/sensor-contracts</module>
+    <module>contracts/analytics-contracts</module>
+    <module>platform/platform-web</module>
+    <module>platform/platform-stream</module>
+    <module>collector-service</module>
+    <module>storage-service</module>
+    <module>sensor-service</module>
+    <module>analytics-service</module>
+    <module>simulator</module>
+  </modules>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.smartenergy</groupId>
+        <artifactId>common-contracts</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.smartenergy</groupId>
+        <artifactId>error-contracts</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.smartenergy</groupId>
+        <artifactId>measurement-contracts</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.smartenergy</groupId>
+        <artifactId>sensor-contracts</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.smartenergy</groupId>
+        <artifactId>analytics-contracts</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.smartenergy</groupId>
+        <artifactId>platform-web</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.smartenergy</groupId>
+        <artifactId>platform-stream</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-spring-boot3</artifactId>
+        <version>${resilience4j.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>

@@ -1,229 +1,166 @@
-# ============================================================
-# SmartEnergy Hub - Orchestration Docker Compose (ENF-03, ENF-04)
-# ------------------------------------------------------------
-# Le projet est decoupe en deux profils :
-#   - (defaut)   : infrastructure uniquement -> Redis, Cassandra, MongoDB
-#   - app        : infrastructure + services applicatifs Spring Boot + simulateur
-#
-# Demarrage infra seule (recommande en developpement, machine limitee) :
-#   docker-compose up -d
-# Demarrage complet :
-#   docker-compose --profile app up -d --build
-# Arret :
-#   docker-compose --profile app down
-#
-# Chaque service est borne en memoire (mem_limit / mem_reservation) afin de
-# tenir sur une machine de 8 Go (limitation de volume/ressources par projet).
-# Les ports sont exposes uniquement sur 127.0.0.1 (ENF-07).
-# ============================================================
-
 name: smartenergy-hub
 
-networks:
-  smartenergy-net:
-    name: smartenergy-net
-    driver: bridge
+# ----------------------------------------------------------------------------
+# Demarrage :  cp .env.example .env && docker compose up -d --build
+# Simulateur :  docker compose run --rm simulator
+# Les ports des BASES ne sont PAS publies ici (securite) : voir docker-compose.override.yml (dev).
+# ----------------------------------------------------------------------------
 
-volumes:
-  smartenergy_redis_data:
-    name: smartenergy_redis_data
-  smartenergy_cassandra_data:
-    name: smartenergy_cassandra_data
-  smartenergy_mongo_data:
-    name: smartenergy_mongo_data
+x-java-service: &java-service
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness || exit 1"]
+    interval: 15s
+    timeout: 5s
+    retries: 10
+    start_period: 45s
+
+x-java-env: &java-env
+  SPRING_PROFILES_ACTIVE: docker
+  SERVER_PORT: "8080"
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
 
 services:
-
-  # ----------------------------------------------------------
-  # Redis Streams : tampon d'evenements (energy-measurements)
-  # ----------------------------------------------------------
+  # ------------------------------------------------------------ infrastructure
   redis:
-    image: redis:7-alpine
-    container_name: smartenergy-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec",
+              "--requirepass", "${REDIS_PASSWORD:?copiez .env.example vers .env}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
-      - smartenergy_redis_data:/data
-    networks:
-      - smartenergy-net
-    mem_limit: ${REDIS_MEM_LIMIT:-256m}
-    mem_reservation: ${REDIS_MEM_RESERVATION:-96m}
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 5s
-
-  # ----------------------------------------------------------
-  # Cassandra : mesures temporelles (measurements_by_sensor_day)
-  # Demarrage lent (~60-90s) -> start_period eleve.
-  # ----------------------------------------------------------
-  cassandra:
-    image: cassandra:4.1
-    container_name: smartenergy-cassandra
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${CASSANDRA_PORT:-9042}:9042"
-    environment:
-      - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME:-smartenergy-cluster}
-      - CASSANDRA_DC=${CASSANDRA_DC:-dc1}
-      - CASSANDRA_ENDPOINT_SNITCH=SimpleSnitch
-      - MAX_HEAP_SIZE=${CASSANDRA_MAX_HEAP:-512M}
-      - HEAP_NEWSIZE=${CASSANDRA_HEAP_NEWSIZE:-128M}
-    volumes:
-      - smartenergy_cassandra_data:/var/lib/cassandra
-    networks:
-      - smartenergy-net
-    mem_limit: ${CASSANDRA_MEM_LIMIT:-1g}
-    mem_reservation: ${CASSANDRA_MEM_RESERVATION:-512m}
-    healthcheck:
-      test: ["CMD-SHELL", "nodetool status | grep -q '^UN'"]
-      interval: 30s
-      timeout: 10s
       retries: 10
-      start_period: 90s
 
-  # ----------------------------------------------------------
-  # MongoDB : metadonnees capteurs + agregats
-  # ----------------------------------------------------------
-  mongodb:
+  mongo:
     image: mongo:7
-    container_name: smartenergy-mongodb
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER:-root}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-root_dev}
-      - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-smartenergy}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?copiez .env.example vers .env}
+      MONGO_SENSOR_PASSWORD: ${MONGO_SENSOR_PASSWORD:?}
+      MONGO_ANALYTICS_PASSWORD: ${MONGO_ANALYTICS_PASSWORD:?}
     volumes:
-      - smartenergy_mongo_data:/data/db
-    networks:
-      - smartenergy-net
-    mem_limit: ${MONGO_MEM_LIMIT:-512m}
-    mem_reservation: ${MONGO_MEM_RESERVATION:-256m}
+      - mongo_data:/data/db
+      # Execute UNE SEULE FOIS (volume vide) : utilisateurs + index. Re-jouer : docker compose down -v
+      - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --host localhost --username $$MONGO_INITDB_ROOT_USERNAME --password $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep -q 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" | grep -q 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
       start_period: 20s
 
-  # ==========================================================
-  # SERVICES APPLICATIFS (profil "app")
-  # Ne demarrent que si --profile app est fourni.
-  # ==========================================================
-
-  collector-service:
-    profiles: ["app"]
-    build:
-      context: ./collector-service
-      dockerfile: Dockerfile
-    image: smartenergy/collector-service:local
-    container_name: smartenergy-collector
-    restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
+  cassandra:
+    image: cassandra:5
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_STREAM=${REDIS_STREAM:-energy-measurements}
-      - JAVA_TOOL_OPTIONS=${SPRING_JAVA_OPTS:--XX:MaxRAMPercentage=60 -XX:+UseSerialGC}
-    ports:
-      - "127.0.0.1:${COLLECTOR_PORT:-8081}:8081"
-    networks:
-      - smartenergy-net
-    mem_limit: ${SPRING_MEM_LIMIT:-512m}
-    mem_reservation: 256m
+      CASSANDRA_CLUSTER_NAME: smartenergy
+      MAX_HEAP_SIZE: ${CASSANDRA_MAX_HEAP:-512M}
+      HEAP_NEWSIZE: ${CASSANDRA_HEAP_NEWSIZE:-128M}
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    healthcheck:
+      # Cassandra met souvent 1 a 2 minutes a etre pret : start_period genereux
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces' > /dev/null 2>&1"]
+      interval: 20s
+      timeout: 15s
+      retries: 15
+      start_period: 60s
+
+  cassandra-init:
+    image: cassandra:5
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./scripts/init-cassandra.cql:/init.cql:ro
+    command: ["cqlsh", "cassandra", "-f", "/init.cql"]
+    restart: "no"
+
+  # ------------------------------------------------------------ services applicatifs
+  collector-service:
+    <<: *java-service
+    build:
+      context: .
+      args: { SERVICE: collector-service }
+    environment:
+      <<: *java-env
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports: ["8081:8080"]
+    depends_on:
+      redis: { condition: service_healthy }
 
   storage-service:
-    profiles: ["app"]
+    <<: *java-service
     build:
-      context: ./storage-service
-      dockerfile: Dockerfile
-    image: smartenergy/storage-service:local
-    container_name: smartenergy-storage
-    restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
-      cassandra:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
+      context: .
+      args: { SERVICE: storage-service }
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_STREAM=${REDIS_STREAM:-energy-measurements}
-      - REDIS_CONSUMER_GROUP=${REDIS_CONSUMER_GROUP:-storage-group}
-      - CASSANDRA_HOST=cassandra
-      - CASSANDRA_PORT=9042
-      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE:-smartenergy}
-      - MONGO_HOST=mongodb
-      - MONGO_PORT=27017
-      - MONGO_DATABASE=${MONGO_DATABASE:-smartenergy}
-      - MONGO_USER=${MONGO_USER:-smartenergy}
-      - MONGO_PASSWORD=${MONGO_PASSWORD:-smartenergy_dev}
-      - JAVA_TOOL_OPTIONS=${SPRING_JAVA_OPTS:--XX:MaxRAMPercentage=60 -XX:+UseSerialGC}
-    ports:
-      - "127.0.0.1:${STORAGE_PORT:-8082}:8082"
-    networks:
-      - smartenergy-net
-    mem_limit: ${SPRING_MEM_LIMIT:-512m}
-    mem_reservation: 256m
+      <<: *java-env
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CASSANDRA_HOST: cassandra
+    ports: ["8082:8080"]
+    depends_on:
+      redis: { condition: service_healthy }
+      cassandra-init: { condition: service_completed_successfully }
 
   analytics-service:
-    profiles: ["app"]
+    <<: *java-service
     build:
-      context: ./analytics-service
-      dockerfile: Dockerfile
-    image: smartenergy/analytics-service:local
-    container_name: smartenergy-analytics
-    restart: unless-stopped
-    depends_on:
-      cassandra:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
+      context: .
+      args: { SERVICE: analytics-service }
     environment:
-      - CASSANDRA_HOST=cassandra
-      - CASSANDRA_PORT=9042
-      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE:-smartenergy}
-      - MONGO_HOST=mongodb
-      - MONGO_PORT=27017
-      - MONGO_DATABASE=${MONGO_DATABASE:-smartenergy}
-      - MONGO_USER=${MONGO_USER:-smartenergy}
-      - MONGO_PASSWORD=${MONGO_PASSWORD:-smartenergy_dev}
-      - JAVA_TOOL_OPTIONS=${SPRING_JAVA_OPTS:--XX:MaxRAMPercentage=60 -XX:+UseSerialGC}
-    ports:
-      - "127.0.0.1:${ANALYTICS_PORT:-8083}:8083"
-    networks:
-      - smartenergy-net
-    mem_limit: ${SPRING_MEM_LIMIT:-512m}
-    mem_reservation: 256m
+      <<: *java-env
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MONGO_HOST: mongo
+      MONGO_ANALYTICS_PASSWORD: ${MONGO_ANALYTICS_PASSWORD}
+      SENSOR_SERVICE_URL: http://sensor-service:8080
+    volumes:
+      - ./models:/app/models:ro
+    ports: ["8083:8080"]
+    depends_on:
+      redis: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+      sensor-service: { condition: service_started }
 
-  simulator:
-    profiles: ["app"]
+  sensor-service:
+    <<: *java-service
     build:
-      context: ./simulator
-      dockerfile: Dockerfile
-    image: smartenergy/simulator:local
-    container_name: smartenergy-simulator
-    restart: unless-stopped
-    depends_on:
-      collector-service:
-        condition: service_started
+      context: .
+      args: { SERVICE: sensor-service }
     environment:
-      - SIMULATOR_INTERVAL_SECONDS=${SIMULATOR_INTERVAL_SECONDS:-2}
-      - SIMULATOR_SENSORS=${SIMULATOR_SENSORS:-SENSOR-001,SENSOR-002,SENSOR-003,SENSOR-004,SENSOR-005}
-      - SIMULATOR_COLLECTOR_URL=${SIMULATOR_COLLECTOR_URL:-http://collector-service:8081/api/measurements}
-      - SIMULATOR_PEAK_FACTOR=${SIMULATOR_PEAK_FACTOR:-3}
-      - SIMULATOR_PEAK_PROBABILITY=${SIMULATOR_PEAK_PROBABILITY:-0.05}
-    networks:
-      - smartenergy-net
-    mem_limit: 128m
-    mem_reservation: 64m
+      <<: *java-env
+      MONGO_HOST: mongo
+      MONGO_SENSOR_PASSWORD: ${MONGO_SENSOR_PASSWORD}
+    ports: ["8084:8080"]
+    depends_on:
+      mongo: { condition: service_healthy }
+
+  # ------------------------------------------------------------ outil (profil "tools")
+  simulator:
+    profiles: ["tools"]
+    build:
+      context: .
+      args: { SERVICE: simulator }
+    restart: "no"
+    environment:
+      SMARTENERGY_SIMULATOR_TARGET_URL: http://collector-service:8080
+      SMARTENERGY_SIMULATOR_SENSOR_SERVICE_URL: http://sensor-service:8080
+      SMARTENERGY_SIMULATOR_SENSORS: ${SIMULATOR_SENSORS:-5}
+      SMARTENERGY_SIMULATOR_INTERVAL: ${SIMULATOR_INTERVAL:-PT2S}
+      SMARTENERGY_SIMULATOR_DURATION: ${SIMULATOR_DURATION:-PT2M}
+      SMARTENERGY_SIMULATOR_REGISTER_SENSORS: "true"
+    depends_on:
+      collector-service: { condition: service_healthy }
+      sensor-service: { condition: service_healthy }
+
+volumes:
+  redis_data:
+  mongo_data:
+  cassandra_data:
