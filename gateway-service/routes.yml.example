@@ -1,0 +1,28 @@
+# [EXTENSION] Routes Spring Cloud Gateway - a copier dans application.yml du module gateway-service.
+# L'ORDRE COMPTE : la regle daily-summary doit preceder /api/sensors/** (decision D-17).
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: collector-post
+          uri: http://collector-service:8080
+          predicates:
+            - Path=/api/measurements
+            - Method=POST
+        - id: storage-read
+          uri: http://storage-service:8080
+          predicates:
+            - Path=/api/measurements/**
+            - Method=GET
+        - id: analytics-daily-summary-alias
+          uri: http://analytics-service:8080
+          predicates:
+            - Path=/api/sensors/*/daily-summary
+        - id: sensors
+          uri: http://sensor-service:8080
+          predicates:
+            - Path=/api/sensors/**
+        - id: analytics
+          uri: http://analytics-service:8080
+          predicates:
+            - Path=/api/analytics/**
