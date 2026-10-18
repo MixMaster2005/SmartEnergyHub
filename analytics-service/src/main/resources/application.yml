@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: analytics-service
+  jackson:
+    default-property-inclusion: non_null
+  data:
+    mongodb:
+      # Utilisateur analytics_app : droits limites a analytics_db (cree par scripts/init-mongo.js)
+      uri: mongodb://analytics_app:${MONGO_ANALYTICS_PASSWORD:change-me-analytics}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/analytics_db?authSource=analytics_db
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:change-me}
+
+server:
+  port: ${SERVER_PORT:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,redis,mongo
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+
+smartenergy:
+  stream:
+    name: ${STREAM_NAME:energy-measurements}
+    group: analytics-group
+    max-deliveries: ${STREAM_MAX_DELIVERIES:5}
+  analytics:
+    sensor-service-url: ${SENSOR_SERVICE_URL:http://localhost:8084}
+    default-max-power-kw: ${ANALYTICS_DEFAULT_MAX_POWER_KW:10.0}
+    expected-interval-seconds: 2      # intervalle nominal des capteurs (plafond d'energie = x energy-gap-factor)
+    energy-gap-factor: 5
+    zscore:
+      threshold: ${ANALYTICS_ZSCORE_THRESHOLD:3.0}
+      min-samples: 30
+    forecast:
+      enabled: ${ANALYTICS_FORECAST_ENABLED:false}
+      model-path: models/energy.onnx
+
+# Resilience4j : appels vers sensor-service (CDC D-20 : timeout 2 s, 2 tentatives, circuit breaker)
+resilience4j:
+  retry:
+    instances:
+      sensor-service:
+        max-attempts: 2
+        wait-duration: 200ms
+  circuitbreaker:
+    instances:
+      sensor-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
