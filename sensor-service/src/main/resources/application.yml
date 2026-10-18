@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: sensor-service
+  jackson:
+    default-property-inclusion: non_null
+  data:
+    mongodb:
+      # Utilisateur sensor_app : droits limites a sensor_db (cree par scripts/init-mongo.js)
+      uri: mongodb://sensor_app:${MONGO_SENSOR_PASSWORD:change-me-sensor}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/sensor_db?authSource=sensor_db
+
+server:
+  port: ${SERVER_PORT:8084}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,mongo
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"

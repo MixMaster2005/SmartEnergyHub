@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- [EXTENSION] A renommer en pom.xml puis ajouter <module>gateway-service</module> au pom parent.
+     Spring Cloud est HORS du BOM Spring Boot : choisir la release train compatible avec votre version de
+     Spring Boot (tableau de compatibilite sur spring.io/projects/spring-cloud) et verifier le nom exact du
+     starter Gateway pour cette release (il a change entre les versions). -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.smartenergy</groupId>
+    <artifactId>smartenergy-hub</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+  <artifactId>gateway-service</artifactId>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version><!-- release train compatible --></version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- starter Spring Cloud Gateway (reactive) + spring-boot-starter-actuator + springdoc webflux (Swagger agrege) -->
+  </dependencies>
+</project>

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smartenergy.local/schemas/problem-details.schema.json",
+  "title": "Erreur REST - RFC 9457 (application/problem+json) + extensions SmartEnergy",
+  "type": "object",
+  "required": ["type", "title", "status", "code"],
+  "properties": {
+    "type": { "type": "string", "format": "uri" },
+    "title": { "type": "string" },
+    "status": { "type": "integer" },
+    "detail": { "type": "string" },
+    "code": { "type": "string", "description": "Voir enum ErrorCode (error-contracts)" },
+    "traceId": { "type": "string" },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "message"],
+        "properties": { "field": { "type": "string" }, "message": { "type": "string" } }
+      }
+    }
+  }
+}
