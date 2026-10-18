@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: storage-service
+  jackson:
+    default-property-inclusion: non_null
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:change-me}
+  cassandra:
+    contact-points: ${CASSANDRA_HOST:localhost}:${CASSANDRA_PORT:9042}
+    local-datacenter: ${CASSANDRA_DC:datacenter1}   # obligatoire ; "datacenter1" pour l'image officielle
+    keyspace-name: smartenergy
+    schema-action: none                              # le schema vient de scripts/init-cassandra.cql
+    request:
+      timeout: 5s
+
+server:
+  port: ${SERVER_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,redis,cassandra
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"
+
+smartenergy:
+  stream:
+    name: ${STREAM_NAME:energy-measurements}
+    group: storage-group
+    max-deliveries: ${STREAM_MAX_DELIVERIES:5}
