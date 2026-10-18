@@ -1,0 +1,7 @@
+# Dépendances pressenties (à valider et figer à l'usage)
+numpy
+pandas
+scikit-learn
+torch
+onnx
+onnxruntime
