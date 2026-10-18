@@ -1,72 +1,32 @@
-# Stratégie de tests — SmartEnergy Hub
+# Preuves de tests (matrice de recette)
 
-Les résultats doivent être **réels** et conservés dans `preuves/`.
+À compléter au fil de l'avancement. Les scénarios 1 à 7 reprennent le tableau du guide ; 8 à 11 sont ajoutés par le cahier des charges.
+Automatisation partielle : `make e2e` (`scripts/e2e.sh`).
 
-## 1. Tests du CDC (§10)
+| N° | Scénario | Résultat attendu | Preuve | Résultat obtenu |
+|---|---|---|---|---|
+| 1 | Mesure valide | HTTP 202 et entrée dans le stream | réponse + `XLEN` | À compléter |
+| 2 | Mesure sans `sensorId` | HTTP 400 Problem Details, aucune entrée | réponse + `XLEN` inchangé | À compléter |
+| 3 | Historique d'un capteur | Liste ordonnée, paginée, bornée par `from`/`to` | appel API | À compléter |
+| 4 | Injection d'un pic ×3 | Anomalie `THRESHOLD` listée | `/anomalies` | À compléter |
+| 5 | Arrêt de storage-service pendant l'envoi | Messages conservés dans Redis (pending/lag en hausse) | `XINFO GROUPS` | À compléter |
+| 6 | Redémarrage de storage-service | Reprise, aucune mesure perdue (comptage Cassandra = mesures acceptées) | comptage | À compléter |
+| 7 | Redémarrage complet de la plateforme | Données toujours présentes (volumes) | appels API | À compléter |
+| 8 | Doublon | Une seule ligne Cassandra, compteur analytics inchangé | API + agrégat | À compléter |
+| 9 | Redis arrêté | Collector répond 503 + `Retry-After` | réponse | À compléter |
+| 10 | Message poison dans le stream | Envoyé en DLQ, le flux continue | `XLEN` de la DLQ | À compléter |
+| 11 | sensor-service arrêté | Analytics traite avec le seuil par défaut | anomalie `thresholdSource = DEFAULT` | À compléter |
 
-| ID | Procédure | Résultat attendu / preuve |
-|---|---|---|
-| T01 — santé | Démarrer chaque service, appeler `/actuator/health`. | HTTP 200, services accessibles. |
-| T02 — mesure valide | `POST` une mesure correcte. | `202` + événement visible dans Redis. |
-| T03 — champ manquant | Mesure sans `sensorId`. | `400` + aucun nouvel événement Redis. |
-| T04 — valeur invalide | `powerKw` négatif ou `timestamp` incorrect. | `400` + message explicite. |
-| T05 — persistance | Envoyer une mesure, attendre le Storage. | Mesure retrouvée dans Cassandra. |
-| T06 — métadonnées | Créer un capteur via l'API et le relire. | Document cohérent, seuil disponible. |
-| T07 — historique | Mesures à horodatages distincts, requête `from/to`. | Liste triée, limitée à la période. |
-| T08 — moyenne | Injecter 2, 4, 6 kW. | Moyenne = 4 kW. |
-| T09 — dépassement | `maxPowerKw=5`, injecter 7 kW. | La mesure apparaît dans les anomalies. |
-| T10 — panne stockage | Arrêter le Storage, envoyer, redémarrer. | Messages traités après reprise. |
-| T11 — doublon | Rejouer un même `eventId`. | Pas de double comptage. |
-| T12 — Compose | Démarrer la stack via la commande documentée. | Dépendances disponibles, services connectés. |
-| T13 — OpenAPI | Ouvrir Swagger UI, exécuter les routes. | Routes/paramètres/réponses compréhensibles. |
-| T14 — bout en bout | 5 capteurs ≥ 2 min + pic (commande en §3, « Test 2 minutes »), consulter historique/anomalies. | Chaîne démontrée de bout en bout. |
+## Mesures de performance (étapes 5 et 11)
 
-## 2. Niveaux de tests
+| Mesure | Méthode | Résultat | Commentaire |
+|---|---|---|---|
+| Lecture d'un jour d'historique (`limit` 1000) | À compléter | | cible p95 < 300 ms |
+| Débit soutenu du collector | À compléter | | cible ≥ 200 mesures/s |
+| Retard de bout en bout (réception → Cassandra) | À compléter | | cible p95 < 5 s |
 
-- **Unitaires** : validation DTO, calculs (moyenne/min/max/énergie), idempotence.
-- **Intégration** : `@SpringBootTest` avec conteneurs (Redis/Cassandra/Mongo) ou mocks ;
-  repository + consumer.
-- **Bout en bout** : simulateur → Collector → Redis → Storage → bases → API.
+## Checklist avant remise
 
-## 3. Commandes
-
-```bash
-# Tests par service
-cd collector-service && ./mvnw test
-cd storage-service   && ./mvnw test
-cd analytics-service && ./mvnw test
-
-# Vérifications manuelles infra
-docker-compose up -d
-docker exec smartenergy-redis redis-cli XLEN energy-measurements
-docker exec smartenergy-redis redis-cli XINFO GROUPS energy-measurements
-docker exec smartenergy-cassandra cqlsh -e "SELECT * FROM smartenergy.measurements_by_sensor_day LIMIT 5;"
-docker exec smartenergy-mongodb mongosh -u root -p root_dev --authenticationDatabase admin \
-  --eval "db.getSiblingDB('smartenergy').sensors.find().pretty()"
-```
-
-### Test 2 minutes (simulation seule, CDC §10.2 — T14)
-
-Simulation locale autonome (sans Collector ni HTTP) : 5 capteurs en continu pendant
-120 s, une mesure toutes les 2 s, avec un pic ×3 au milieu du test.
-
-```bash
-cd simulator
-python3 preview_measurements.py --sensors 5 --duration-seconds 120 \
-  --interval-seconds 2 --seed 42 --peak-at-second 60 --peak-duration 10
-```
-
-Attendu : **300 mesures** (5 capteurs × 60 cycles) imprimées en continu, pic ×3 sur
-`SENSOR-001` entre t=60 s et t=70 s, fin `CONTRAT VALIDE`. Preuve :
-`preuves/tests/` (sortie console ci-dessus).
-
-## 4. Jeux de données de référence
-
-- Moyenne : `[2, 4, 6] kW` → moyenne `4`.
-- Dépassement : `maxPowerKw = 5`, mesure `7` → anomalie.
-- Idempotence : même `eventId` envoyé deux fois → agrégats inchangés.
-
-## 5. Preuves
-
-Consigner captures et sorties dans `preuves/tests/` et `preuves/captures/`
-(voir le gabarit `preuves/tests/resultats-modele.md`).
+Reprendre la checklist du guide (section 28) : compilation sans modification manuelle, README clair, Docker Compose, simulateur,
+requêtes invalides rejetées, messages visibles dans Redis, mesures dans Cassandra, capteurs/agrégats dans MongoDB, historique via API,
+résultats analytiques vérifiables, scénarios de panne testés, secrets absents du dépôt, Swagger accessible.
