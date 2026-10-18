@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smartenergy.local/schemas/energy-measurement-request.schema.json",
+  "title": "Corps de POST /api/measurements (collector-service)",
+  "type": "object",
+  "required": ["sensorId", "timestamp", "powerKw", "voltage"],
+  "properties": {
+    "sensorId": { "type": "string", "pattern": "^[A-Z0-9-]{3,32}$" },
+    "timestamp": { "type": "string", "format": "date-time", "description": "ISO-8601 UTC ; pas plus de 5 min dans le futur, pas plus vieux que 24 h" },
+    "powerKw": { "type": "number", "minimum": 0, "maximum": 1000 },
+    "voltage": { "type": "number", "minimum": 0, "maximum": 500 },
+    "temperature": { "type": "number", "minimum": -50, "maximum": 100 },
+    "currentA": { "type": "number", "minimum": 0, "maximum": 2000 },
+    "frequencyHz": { "type": "number", "minimum": 40, "maximum": 70 },
+    "state": { "type": "string", "enum": ["ON", "OFF", "STANDBY", "FAULT"] }
+  },
+  "additionalProperties": true
+}
