@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.smartenergy</groupId>
+    <artifactId>smartenergy-hub</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>sensor-service</artifactId>
+  <name>sensor-service</name>
+  <description>Registre des capteurs et de leurs seuils (MongoDB sensor_db)</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.smartenergy</groupId>
+      <artifactId>platform-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.smartenergy</groupId>
+      <artifactId>sensor-contracts</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.smartenergy</groupId>
+      <artifactId>common-contracts</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.smartenergy</groupId>
+      <artifactId>error-contracts</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-mongodb</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mongodb</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <finalName>app</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>
