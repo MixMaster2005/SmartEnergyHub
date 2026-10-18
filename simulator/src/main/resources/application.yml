@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: simulator
+  main:
+    web-application-type: none
+
+# Surcharge en ligne de commande, ex. :
+#   --smartenergy.simulator.sensors=10 --smartenergy.simulator.interval=PT1S
+#   --smartenergy.simulator.anomaly.sensor=SENSOR-003 --smartenergy.simulator.anomaly.at-seconds=60
+smartenergy:
+  simulator:
+    target-url: http://localhost:8081
+    sensor-service-url: http://localhost:8084
+    register-sensors: false
+    sensors: 5
+    interval: PT2S
+    duration: PT2M          # PT0S = sans fin
+    seed: 42
+    anomaly:
+      sensor: ""            # ex. SENSOR-003 pour activer le pic
+      at-seconds: 60
+      duration-seconds: 10
+      factor: 3.0

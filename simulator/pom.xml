@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.smartenergy</groupId>
+    <artifactId>smartenergy-hub</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>simulator</artifactId>
+  <name>simulator</name>
+  <description>Simulateur de capteurs : profil sinusoidal + bruit, anomalies, doublons et mesures invalides injectables</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.smartenergy</groupId>
+      <artifactId>measurement-contracts</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.smartenergy</groupId>
+      <artifactId>sensor-contracts</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.smartenergy</groupId>
+      <artifactId>common-contracts</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <finalName>app</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>
