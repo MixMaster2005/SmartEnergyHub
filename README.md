@@ -30,6 +30,7 @@ SmartEnrgyHub/
 ├── storage-service/          # Spring Boot
 ├── analytics-service/        # Spring Boot + OpenAPI
 ├── scripts/                  # init-cassandra.cql, sample-data.json
+├── infra/                    # scripts de cycle de vie (linux/, windows/)
 └── preuves/                  # tests/, captures/
 ```
 
@@ -146,7 +147,30 @@ Analytics/API, OpenAPI, Docker Compose, tests.
 **Exclu du MVP** : prévision IA, dashboard web, API Gateway, JWT, alertes externes,
 Kafka/Spark, Kubernetes, Prometheus/Grafana.
 
-## 9. État d'avancement
+## 9. Outils infra (cycle de vie)
+
+Commandes de cycle de vie (infra + services). Voir `infra/README.md`.
+
+Linux, macOS, WSL, Git Bash :
+
+```bash
+./infra/linux/se.sh help
+./infra/linux/se.sh doctor
+./infra/linux/se.sh first-start
+./infra/linux/se.sh start --no-wait
+```
+
+Windows (PowerShell / CMD) :
+
+```powershell
+infra\windows\se.cmd help
+infra\windows\se.cmd doctor
+infra\windows\se.cmd first-start
+```
+
+Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
+
+## 10. État d'avancement
 
 - [x] Arborescence, configuration externe, Docker Compose (infra + profils + limites).
 - [x] Squelettes Spring Boot compilables (Collector, Storage, Analytics + OpenAPI).
