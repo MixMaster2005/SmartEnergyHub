@@ -21,13 +21,13 @@ Jackson : **pas de coercion** (`"3.72"` en chaîne est refusé).
 
 ## Déjà fait
 Application, propriétés, bean `Clock`, `application.yml`, `/api/health` + erreurs + `X-Request-Id` (platform-web), Dockerfile/Compose.
+`validation/MeasurementTimeValidator` — règles temporelles 24 h / 5 min (étape 1), test unitaire `MeasurementTimeValidatorTest` (8 cas, horloge fixe).
+`stream/MeasurementPublisher` — `XADD` `MAXLEN ~`, 503 si Redis KO, métriques publication (étape 3), test unitaire `MeasurementPublisherTest`.
+`web/MeasurementController` — 202 + `X-Event-Id`, OpenAPI (étape 3), test unitaire `MeasurementControllerTest`.
 
 ## À faire (dans l'ordre)
-1. `validation/MeasurementTimeValidator` — règles temporelles (étape 1)
-2. `stream/MeasurementPublisher` — `XADD` avec `MAXLEN ~`, 503 si Redis KO (étape 3)
-3. `web/MeasurementController` — 202 + `X-Event-Id` (étape 3)
-4. `web/BodySizeLimitFilter` — 413 (étape 12)
-5. `CollectorIntegrationTest` — scénarios 1, 2, 8, 9
+1. `web/BodySizeLimitFilter` — 413 (étape 12)
+2. `CollectorIntegrationTest` — scénarios 1, 2, 8, 9
 
 ## Pièges
 - Ne **jamais** réécrire la sérialisation : `MeasurementEventCodec.toFields` est le contrat.

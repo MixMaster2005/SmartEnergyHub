@@ -7,19 +7,6 @@ puis un **squelette commenté** à décommenter (`Ctrl+/`) et à compléter.
 Ordre conseillé : de haut en bas. Les classes déjà opérationnelles (contrats, plomberie web, sensor-service,
 simulateur, scripts de base de données, Docker) ne figurent pas ici.
 
-## Étape 1 · Contrat de données  _(plan : J2)_
-
-| Fichier | À faire |
-|---|---|
-| `collector-service/src/main/java/com/smartenergy/collector/validation/MeasurementTimeValidator.java` | Regles temporelles : mesure trop ancienne ou dans le futur |
-
-## Étape 3 · Collector Service  _(plan : J2)_
-
-| Fichier | À faire |
-|---|---|
-| `collector-service/src/main/java/com/smartenergy/collector/stream/MeasurementPublisher.java` | Publication des mesures dans Redis Streams (XADD) |
-| `collector-service/src/main/java/com/smartenergy/collector/web/MeasurementController.java` | Endpoint POST /api/measurements (202 / 400 / 503) |
-
 ## Étape 4 · Redis Streams  _(plan : J3)_
 
 | Fichier | À faire |
@@ -86,4 +73,4 @@ simulateur, scripts de base de données, Docker) ne figurent pas ici.
 | `analytics-service/src/test/java/com/smartenergy/analytics/rules/AnalyticsRulesTest.java` | Tests unitaires des regles analytiques |
 | `analytics-service/src/test/java/com/smartenergy/analytics/AnalyticsIntegrationTest.java` | Tests d'integration analytics (Testcontainers Redis + MongoDB) |
 
-**Total : 24 fichiers à compléter.**
+**Total : 21 fichiers à compléter.**
