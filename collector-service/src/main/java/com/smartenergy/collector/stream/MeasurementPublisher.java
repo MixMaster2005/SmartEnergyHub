@@ -1,48 +1,60 @@
 package com.smartenergy.collector.stream;
 
-// ========================================================================
-// TODO(etape-3) - Publication des mesures dans Redis Streams (XADD)
-// ========================================================================
-// Guide : etapes 3 et 4. CDC : section 5.3 (contrat d'evenement), decisions D-03, D-06, D-07.
-//
-// Objectif : ecrire UNE entree dans le stream energy-measurements par mesure valide.
-//
-// A faire :
-//  1. Convertir l'evenement en champs texte : MeasurementEventCodec.toFields(measurement)
-//     (ne PAS reecrire la serialisation : le codec est le contrat partage).
-//  2. XADD sur props.name() avec MAXLEN ~ props.maxLen() (trim approximatif, decision D-06).
-//     Avec Spring Data Redis : redis.opsForStream().add(StreamRecords.string(fields).withStreamKey(...),
-//     <options MAXLEN approximatif>) - verifier l'API de votre version (XAddOptions) ; sinon commande brute.
-//  3. Retourner l'id du message Redis (ex. 1700000000000-0) pour le journal.
-//  4. Redis indisponible (RedisConnectionFailureException, QueryTimeoutException...) :
-//     lever ApiException.unavailable("...", 5)  ->  HTTP 503 + Retry-After. JAMAIS de 202 sans XADD reussi.
-//  5. Compter les publications : compteur Micrometer energy_measurements_published_total
-//     et chronometrer la publication (voir CDC section 9).
-//
-// Tests : mesure valide -> XLEN +1 et champs conformes a contracts/schemas/measurement-event.schema.json ;
-// Redis arrete -> 503 ; meme mesure envoyee deux fois -> 2 entrees (le doublon est neutralise en aval).
-//
-// -- Squelette a activer : decommenter (Ctrl+/) puis completer --
-//
-// import com.smartenergy.contracts.measurement.EnergyMeasurement;
-// import com.smartenergy.platform.stream.StreamProperties;
-// import org.springframework.data.redis.core.StringRedisTemplate;
-// import org.springframework.stereotype.Component;
-//
-// @Component
-// public class MeasurementPublisher {
-//     private final StringRedisTemplate redis;
-//     private final StreamProperties props;
-//
-//     public MeasurementPublisher(StringRedisTemplate redis, StreamProperties props) {
-//         this.redis = redis;
-//         this.props = props;
-//     }
-//
-//     /** @return l'id du message Redis */
-//     public String publish(EnergyMeasurement measurement) {
-//         // Map<String, String> fields = MeasurementEventCodec.toFields(measurement);
-//         // try { XADD ... } catch (RuntimeException e) { throw ApiException.unavailable("Redis indisponible", 5); }
-//         throw new UnsupportedOperationException("TODO etape 3");
-//     }
-// }
+import com.smartenergy.contracts.error.ApiException;
+import com.smartenergy.contracts.measurement.EnergyMeasurement;
+import com.smartenergy.contracts.measurement.MeasurementEventCodec;
+import com.smartenergy.platform.stream.StreamProperties;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import java.util.Map;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.connection.RedisStreamCommands.XAddOptions;
+import org.springframework.data.redis.connection.stream.Record;
+import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
+
+/** Publication d'une mesure dans le stream Redis (CDC section 5.3, decisions D-03, D-06). */
+@Component
+public class MeasurementPublisher {
+
+    private static final String PUBLISHED_COUNTER = "energy_measurements_published_total";
+    private static final String PUBLISH_TIMER = "energy_measurements_publish";
+
+    private final StringRedisTemplate redis;
+    private final StreamProperties props;
+    private final MeterRegistry registry;
+    private final Counter publishedCounter;
+    private final Timer publishTimer;
+
+    public MeasurementPublisher(StringRedisTemplate redis, StreamProperties props, MeterRegistry registry) {
+        this.redis = redis;
+        this.props = props;
+        this.registry = registry;
+        this.publishedCounter = registry.counter(PUBLISHED_COUNTER);
+        this.publishTimer = Timer.builder(PUBLISH_TIMER).register(registry);
+    }
+
+    /**
+     * Ecrit une entree dans le stream avec un MAXLEN approximatif (decision D-06) et compte la publication.
+     *
+     * @return l'id du message Redis (ex. 1700000000000-0)
+     */
+    public String publish(EnergyMeasurement measurement) {
+        Timer.Sample sample = Timer.start(registry);
+        try {
+            Map<String, String> fields = MeasurementEventCodec.toFields(measurement);
+            Record<String, ?> record = StreamRecords.string(fields).withStreamKey(props.name());
+            XAddOptions options = XAddOptions.maxlen(props.maxLen()).approximateTrimming(true);
+            RecordId id = redis.opsForStream().add(record, options);
+            publishedCounter.increment();
+            return id.getValue();
+        } catch (DataAccessException e) {
+            throw ApiException.unavailable("Redis indisponible", 5);
+        } finally {
+            sample.stop(publishTimer);
+        }
+    }
+}
