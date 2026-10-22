@@ -125,7 +125,7 @@ Les ports 8081 à 8083 reprennent le docker-compose du guide ; 8084 et 8080 sont
 | D-02 | Deux consumer groups sur un stream (`storage-group`, `analytics-group`) | Storage qui met à jour Mongo ; second stream | Découple persistance et calcul ; un arrêt d'analytics n'affecte pas le stockage. Écart avec l'étape 7 du guide |
 | D-03 | Redis Streams pour le MVP, Kafka en extension | Kafka d'emblée | Plus léger à opérer ; le contrat d'événement reste identique (portable vers Kafka) |
 | D-04 | Redis avec AOF (`appendonly yes`, fsync chaque seconde) et volume `redis_data` | Config par défaut (snapshots RDB seulement) | Sans AOF, un redémarrage de Redis perd les messages en attente, ce qui contredirait EF-15 |
-| D-05 | ACK après persistance, XAUTOCLAIM pour les messages bloqués, DLQ après 5 livraisons | Auto-ACK ; retry infini | Livraison at-least-once ; les messages poison ne bloquent pas le flux |
+| D-05 | ACK après persistance, XAUTOCLAIM pour les messages bloqués, DLQ après 5 livraisons (implémenté par XPENDING + XCLAIM, voir D-22 : Spring Data Redis 3.5 n'expose pas XAUTOCLAIM) | Auto-ACK ; retry infini | Livraison at-least-once ; les messages poison ne bloquent pas le flux |
 | D-06 | Rétention du stream par `MAXLEN ~ 500000` (trim approximatif) | Trim par durée ; pas de trim | Mémoire bornée ; le retard des consommateurs est surveillé (métrique `stream_lag`) pour ne jamais approcher la limite |
 | D-07 | `eventId` = UUID v5 de `sensorId`  • `|`  • `timestamp` (ms) | UUID aléatoire | Même mesure rejouée donne le même identifiant : déduplication triviale |
 | D-08 | Cassandra : partition `(sensor_id, day)`, clustering `measured_at DESC`, TWCS | Partition par capteur seul ; STCS | Partitions bornées (environ 43 200 lignes par jour à 1 mesure/2 s) ; TWCS adaptée aux données temporelles |
@@ -142,6 +142,7 @@ Les ports 8081 à 8083 reprennent le docker-compose du guide ; 8084 et 8080 sont
 | D-19 | Tests d'intégration avec Testcontainers (Redis, Mongo, Cassandra) | Mocks ; bases locales | Prouve la chaîne réelle ; reproductible sur toute machine avec Docker |
 | D-20 | Résilience des appels REST internes : timeout 2 s, 2 retries, circuit breaker (Resilience4j), cache Redis 60 s | Appel direct sans protection | Analytics continue de fonctionner si sensor-service est indisponible (seuil par défaut) |
 | D-21 | Fenêtres temporelles à l'ingestion : mesure ≤ 24 h, futur ≤ 5 min (bornes strictes, 1 ms de dépassement = 400) | Rejet de toute mesure non horodatée « maintenant » ; file de rattrapage pour les mesures > 24 h | 24 h = reprise d'un capteur après coupure réseau (mesures buffered exploitables) ; 5 min = tolérance de dérive d'horloge, au-delà l'ordre temporel n'est plus garanti. Paramétrable (`MEASUREMENT_MAX_AGE` / `MEASUREMENT_MAX_FUTURE`) |
+| D-22 | Reprise des messages inactifs par `XPENDING` (détail : compteur de livraisons, temps d'inactivité) + `XCLAIM`, équivalent d'`XAUTOCLAIM` | Commande brute `XAUTOCLAIM` via `redis.execute(...)` | Spring Data Redis 3.5.0 n'expose pas `XAUTOCLAIM` ; l'approche typée reste portable (Lettuce, Jedis) et ne requiert aucun parsing de réponse, au prix d'un aller-retour Redis supplémentaire par passe |
 
 ---
 
