@@ -1,7 +1,8 @@
-# sensor-service (port 8084)
+# sensor-service (port local 8084, 8080 dans Docker)
 
-**Rôle** : registre des capteurs (métadonnées et seuil `maxPowerKw`) — EF-05. **Service complet** (CRUD), à relire et tester.
-**Propriétaire** de MongoDB `sensor_db` (utilisateur `sensor_app`, droits limités à cette base).
+**Rôle** : registre des capteurs (métadonnées et seuil `maxPowerKw`) — EF-05. CRUD complet,
+testé unitairement. **Propriétaire** de MongoDB `sensor_db` (utilisateur `sensor_app`,
+droits limités à cette base).
 
 ## Contrat
 | Route | Réponses |
@@ -15,14 +16,28 @@
 `PUT` : le `sensorId` du corps doit égaler celui de l'URL ; `version` optionnelle (verrou optimiste).
 `GET /api/sensors/{id}/daily-summary` **n'est pas ici** : il est servi par analytics-service (décision D-17).
 
+Détails comportementaux :
+- pagination : `page=0` par défaut, `size=20`, tri par `sensorId` ; `page<0` ou `size` hors `[1,100]` → 400 `INVALID_PARAMETER` ;
+- `active` absent du corps à la création → `true` ;
+- `DELETE` = désactivation logique (`active=false` + mise à jour de `updatedAt`) ;
+- `409` aussi en cas de course sur l'index unique (`DuplicateKeyException` attrapée).
+
 ## Données
-`sensors` : `sensorId` (index unique `uk_sensorId`, créé par `scripts/init-mongo.js`), `name`, `building`, `floor`, `maxPowerKw`,
-`active`, `tags`, `version`, `createdAt`, `updatedAt`.
+`sensors` : `sensorId` (index unique `uk_sensorId`), `name`, `building` (index `ix_building`),
+`floor`, `maxPowerKw`, `active`, `tags`, `version`, `createdAt`, `updatedAt`.
+Les index sont créés par `scripts/init-mongo.js` (pas par Spring).
+
+## Configuration (`application.yml`)
+`SERVER_PORT` (8084 en local, 8080 dans Docker) · `MONGO_HOST/PORT` ·
+`MONGO_SENSOR_PASSWORD` (utilisateur `sensor_app`) · Actuator : `health,info,metrics,prometheus`,
+readiness `mongo`. Les 5 routes portent des annotations OpenAPI (springdoc via platform-web).
 
 ## Tests
-`SensorServiceTest` (Mockito, sans base) : création, doublon, `sensorId` incohérent, inconnu, taille de page.
-À ajouter : test d'intégration Testcontainers MongoDB (scénario « métadonnées consultables Cassandra arrêtée »).
+`SensorServiceTest` (Mockito, sans base) : création, doublon, `sensorId` incohérent, inconnu (PUT), taille de page — 5 tests.
+À ajouter : `PUT` avec `version` périmée → 409, `DuplicateKeyException` → 409, création puis lecture,
+test d'intégration Testcontainers MongoDB (scénario « métadonnées consultables Cassandra arrêtée »).
+Les dépendances Testcontainers sont déjà dans le `pom.xml` (scope test).
 
 ## Pièges
-- L'unicité repose sur l'**index** MongoDB (course entre deux créations) ; le contrôle `existsBySensorId` ne suffit pas seul.
-- Les index ne sont pas créés par Spring (`auto-index-creation` désactivé) : ils viennent du script d'initialisation.
+- L'unicité repose sur l'**index** MongoDB (course entre deux créations) ; le contrôle `existsBySensorId` ne suffit pas seul — le rattrapage est le `catch (DuplicateKeyException)` → 409.
+- Les index ne sont pas créés par Spring (auto-index-creation non activée explicitement) : ils viennent du script d'initialisation.

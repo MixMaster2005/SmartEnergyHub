@@ -21,6 +21,7 @@ docker compose run --rm simulator \
 | `sensors`, `interval`, `duration` | 5, PT2S, PT2M | `PT0S` = sans fin |
 | `seed` | 42 | reproductibilité |
 | `p-base-kw`, `amplitude-kw`, `period-seconds`, `noise-sigma-kw` | 3.5, 1.0, 120, 0.1 | modèle de puissance (période comprimée) |
+| `voltage-base`, `temperature-base` | 230, 25 | bases des mesures secondaires |
 | `max-power-kw` | 8.0 | seuil des capteurs enregistrés (doit être < `factor` × `Pbase`) |
 | `anomaly.sensor`, `at-seconds`, `duration-seconds`, `factor` | vide, 60, 10, 3.0 | pic injecté |
 | `invalid-rate`, `duplicate-rate` | 0 | mesures invalides / doublons (scénarios 2 et 8) |
