@@ -25,7 +25,7 @@ Aucun service ne lit la base d'un autre.
 
 ## Fiabilité
 
-- **At-least-once** : ACK uniquement après persistance ; messages en attente réclamés (`XAUTOCLAIM`) ; DLQ après 5 livraisons
+- **At-least-once** : ACK uniquement après persistance ; messages en attente réclamés (`XPENDING` + `XCLAIM`, décision D-22) ; DLQ après 5 livraisons
   ou si l'évènement est illisible.
 - **Idempotence** : `eventId` = UUID v5 de `sensorId|timestamp` ; clé primaire Cassandra naturelle ; dédup Redis côté analytics.
 - **Redis persistant** : AOF + volume (sinon un redémarrage de Redis perd les messages en attente).

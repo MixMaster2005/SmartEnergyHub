@@ -7,14 +7,6 @@ puis un **squelette commenté** à décommenter (`Ctrl+/`) et à compléter.
 Ordre conseillé : de haut en bas. Les classes déjà opérationnelles (contrats, plomberie web, sensor-service,
 simulateur, scripts de base de données, Docker) ne figurent pas ici.
 
-## Étape 5 · Cassandra  _(plan : J4)_
-
-| Fichier | À faire |
-|---|---|
-| `storage-service/src/main/java/com/smartenergy/storage/entity/MeasurementKey.java` | Cle primaire composite Spring Data Cassandra |
-| `storage-service/src/main/java/com/smartenergy/storage/entity/MeasurementByDayEntity.java` | Entite Cassandra measurements_by_sensor_day |
-| `storage-service/src/main/java/com/smartenergy/storage/entity/LatestMeasurementEntity.java` | Entite Cassandra latest_measurement_by_sensor |
-
 ## Étape 7 · Storage Service  _(plan : J3-J4)_
 
 | Fichier | À faire |
@@ -67,4 +59,4 @@ simulateur, scripts de base de données, Docker) ne figurent pas ici.
 | `analytics-service/src/test/java/com/smartenergy/analytics/rules/AnalyticsRulesTest.java` | Tests unitaires des regles analytiques |
 | `analytics-service/src/test/java/com/smartenergy/analytics/AnalyticsIntegrationTest.java` | Tests d'integration analytics (Testcontainers Redis + MongoDB) |
 
-**Total : 20 fichiers à compléter.**
+**Total : 17 fichiers à compléter.**

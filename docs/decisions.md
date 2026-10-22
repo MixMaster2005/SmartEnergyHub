@@ -1,6 +1,6 @@
 # Décisions d'architecture (résumé)
 
-Version complète avec alternatives écartées : cahier des charges dans Notion (section 4).
+Version complète avec alternatives écartées : `docs/cdc.md` (section 4).
 
 | ID | Décision | Pourquoi |
 |---|---|---|
@@ -8,7 +8,7 @@ Version complète avec alternatives écartées : cahier des charges dans Notion 
 | D-02 | Deux consumer groups (storage, analytics) | Découple persistance et calcul ; écart avec l'étape 7 du guide |
 | D-03 | Redis Streams (Kafka en extension) | Plus léger ; contrat d'évènement portable |
 | D-04 | Redis en AOF + volume | Sinon perte des messages en attente au redémarrage |
-| D-05 | ACK après persistance, XAUTOCLAIM, DLQ après 5 livraisons | At-least-once sans bloquer le flux |
+| D-05 | ACK après persistance, reprise des messages bloqués via XPENDING + XCLAIM (D-22), DLQ après 5 livraisons | At-least-once sans bloquer le flux |
 | D-06 | MAXLEN ~ 500000 | Mémoire bornée ; surveiller le lag |
 | D-07 | eventId = UUID v5 (sensorId|timestamp ms) | Déduplication triviale |
 | D-08 | Cassandra : partition (sensor_id, day), clustering measured_at DESC, TWCS | Partitions bornées, adapté aux séries temporelles |
