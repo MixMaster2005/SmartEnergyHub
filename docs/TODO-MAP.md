@@ -7,12 +7,6 @@ puis un **squelette commenté** à décommenter (`Ctrl+/`) et à compléter.
 Ordre conseillé : de haut en bas. Les classes déjà opérationnelles (contrats, plomberie web, sensor-service,
 simulateur, scripts de base de données, Docker) ne figurent pas ici.
 
-## Étape 4 · Redis Streams  _(plan : J3)_
-
-| Fichier | À faire |
-|---|---|
-| `platform/platform-stream/src/main/java/com/smartenergy/platform/stream/AbstractStreamConsumer.java` | Boucle de consommation Redis Streams (consumer group, ACK, reprise, DLQ) |
-
 ## Étape 5 · Cassandra  _(plan : J4)_
 
 | Fichier | À faire |
@@ -73,4 +67,4 @@ simulateur, scripts de base de données, Docker) ne figurent pas ici.
 | `analytics-service/src/test/java/com/smartenergy/analytics/rules/AnalyticsRulesTest.java` | Tests unitaires des regles analytiques |
 | `analytics-service/src/test/java/com/smartenergy/analytics/AnalyticsIntegrationTest.java` | Tests d'integration analytics (Testcontainers Redis + MongoDB) |
 
-**Total : 21 fichiers à compléter.**
+**Total : 20 fichiers à compléter.**
