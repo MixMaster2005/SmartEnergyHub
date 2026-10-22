@@ -3,49 +3,75 @@
 Plateforme distribuée de collecte, de stockage et d'analyse descriptive de mesures
 énergétiques. Voir le cahier des charges pour le périmètre complet.
 
-**Chaîne** : Simulateur → Collector (Spring Boot) → Redis Streams → Storage (Spring Boot)
-→ Cassandra + MongoDB ; Analytics/API Service (Spring Boot + Swagger) pour la consultation.
+**Chaîne** : Simulateur (Java) → Collector (Spring Boot) → Redis Streams →
+Storage (Spring Boot) → Cassandra ; Analytics/API (Spring Boot + Swagger) pour la
+consultation ; Sensor Service (Spring Boot) pour le référentiel des capteurs.
 
 ## 1. Prérequis
 
 | Outil | Version testée |
 |---|---|
 | JDK | 17 |
-| Maven | 3.8+ (ou wrapper `./mvnw`) |
+| Maven | 3.8+ (build racine multi-modules, pas de wrapper) |
 | Docker | 28.x |
-| Docker Compose | v2/v5 (`docker-compose`) |
-| Python | 3.12 (optionnel, pour lancer le simulateur hors Docker) |
+| Docker Compose | v2 (`docker compose`) |
 
 Machine recommandée : ≥ 8 Go RAM (limites mémoire définies par conteneur).
 
 ## 2. Arborescence
 
 ```
-SmartEnrgyHub/
-├── docker-compose.yml        # infrastructure + services (profil app)
-├── .env                      # ports, URLs, identifiants de dev (ENF-02)
-├── docs/                     # architecture, contrat, API, décisions, tests
-├── simulator/                # simulateur Python
-├── collector-service/        # Spring Boot
-├── storage-service/          # Spring Boot
-├── analytics-service/        # Spring Boot + OpenAPI
-├── scripts/                  # init-cassandra.cql, sample-data.json
+SmartEnergyHub/
+├── docker-compose.yml        # infra + services applicatifs
+├── docker-compose.override.yml  # publie les ports des bases (dev uniquement)
+├── .env / .env.example       # ports, URLs, identifiants de dev (ENF-02)
+├── Dockerfile                # image unique paramétrée par SERVICE=<module>
+├── Makefile                  # raccourcis : build, up, sim, e2e, todo...
+├── docs/                     # architecture, CDC, décisions, sécurité, tests
+├── contracts/                # modules Maven de contrats partagés (+ schémas JSON)
+├── platform/                 # platform-web (erreurs RFC 9457) + platform-stream (consumer Redis)
+├── simulator/                # simulateur Java (Spring Boot, CLI)
+├── collector-service/        # ingestion des mesures
+├── storage-service/          # persistance Cassandra
+├── sensor-service/           # référentiel des capteurs (MongoDB)
+├── analytics-service/        # agrégats/anomalies + API Swagger
+├── gateway-service/          # EXTENSION non codée (exemples de config)
+├── ml/ + models/             # pipeline de prévision IA (extension, squelette)
+├── scripts/                  # init-cassandra.cql, init-mongo.js, e2e.sh
 ├── infra/                    # scripts de cycle de vie (linux/, windows/)
 └── preuves/                  # tests/, captures/
 ```
 
 ## 3. Démarrage
 
-### 3.1 Infrastructure seule (recommandé en développement)
+### 3.1 Plateforme complète (infra + services applicatifs)
 
 ```bash
-docker-compose up -d
-docker-compose ps
+cp .env.example .env          # si .env absent (make up le fait aussi)
+docker compose up -d --build
+docker compose ps
 ```
 
-Attendre que `redis`, `cassandra` et `mongodb` soient `healthy` (Cassandra ~60-90 s).
+Attendre que `redis`, `mongo` et `cassandra` soient `healthy` (Cassandra ~60-90 s),
+puis que `cassandra-init` se termine (le schéma Cassandra est créé automatiquement).
 
-### 3.2 Initialiser le schéma Cassandra
+Ports publiés (dev) : Collector `:8081`, Storage `:8082`, Analytics/API `:8083`,
+Sensor `:8084`. Bases : Redis `:6379`, MongoDB `:27017`, Cassandra `:9042`
+(uniquement via `docker-compose.override.yml`).
+
+- Collector : http://localhost:8081/actuator/health
+- Storage : http://localhost:8082/actuator/health
+- Analytics/API + Swagger : http://localhost:8083/swagger-ui.html
+- Sensor : http://localhost:8084/actuator/health
+
+### 3.2 Infrastructure seule (sans les services applicatifs)
+
+```bash
+docker compose up -d redis mongo cassandra cassandra-init
+```
+
+Le schéma Cassandra est initialisé par le conteneur `cassandra-init`
+(exécution unique de `scripts/init-cassandra.cql`). En cas de besoin manuel :
 
 ```bash
 docker exec -i smartenergy-cassandra cqlsh < scripts/init-cassandra.cql
@@ -53,54 +79,39 @@ docker exec -i smartenergy-cassandra cqlsh < scripts/init-cassandra.cql
 
 ### 3.3 Compiler / lancer un service applicatif en local
 
-```bash
-cd collector-service && ./mvnw spring-boot:run      # http://localhost:8081
-cd storage-service   && ./mvnw spring-boot:run      # http://localhost:8082
-cd analytics-service && ./mvnw spring-boot:run      # http://localhost:8083
-```
-
-### 3.4 Stack complète (infra + services + simulateur)
+Le build est multi-modules à la racine (pas de `mvnw` par module) :
 
 ```bash
-docker-compose --profile app up -d --build
+# Compiler un service + ses dépendances (contrats, platform)
+mvn -pl collector-service -am package -DskipTests
+
+# Lancer (exemples ; le port local par défaut est dans chaque application.yml)
+java -jar collector-service/target/app.jar   # http://localhost:8081
+java -jar storage-service/target/app.jar     # http://localhost:8082
+java -jar analytics-service/target/app.jar   # http://localhost:8083
+java -jar sensor-service/target/app.jar      # http://localhost:8084
 ```
 
-- Collector : http://localhost:8081/actuator/health
-- Storage : http://localhost:8082/actuator/health
-- Analytics/API + Swagger : http://localhost:8083/swagger-ui.html
-
-### 3.5 Simulateur hors Docker
+Alternative développeur (nécessite un `mvn -pl <module> -am install -DskipTests`
+préalable pour résoudre les dépendances locales) :
 
 ```bash
-cd simulator
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-SIMULATOR_COLLECTOR_URL=http://localhost:8081/api/measurements python3 simulator.py
+mvn -pl collector-service spring-boot:run
 ```
 
-### 3.6 Aperçu autonome de la simulation (sans Collector)
+Les services en local se connectent aux bases dockerisées grâce aux ports
+publiés par `docker-compose.override.yml` et aux variables d'env de `.env`.
 
-`preview_measurements.py` est un fichier **indépendant** (stdlib uniquement, aucun envoi
-HTTP) qui génère puis imprime les mesures simulées en JSON pour vérifier localement la
-première partie (simulation des capteurs). Formule (CDC 10.1) :
-`Pt = Pbase + A·sin(2π·t/T) + εt`.
+### 3.4 Simulateur
+
+Le simulateur est une application Java (Spring Boot, sans serveur web).
+Détails et options (durée, nombre de capteurs, pics d'anomalie) :
+voir `simulator/README.md`.
 
 ```bash
-python3 simulator/preview_measurements.py                      # aperçu : 5 capteurs x 3 cycles
-python3 simulator/preview_measurements.py --sensors 5 --ticks 3 --seed 42
-python3 simulator/preview_measurements.py --ticks 5 --peak-every 3   # force un pic
-python3 simulator/preview_measurements.py --json               # sortie JSON brute
-
-# Test CDC 10.2 : 5 capteurs en continu pendant 2 min, pic au milieu
-python3 simulator/preview_measurements.py --sensors 5 --duration-seconds 120 \
-  --interval-seconds 2 --seed 42 --peak-at-second 60 --peak-duration 10
+docker compose run --rm simulator    # 5 capteurs, 2 minutes par défaut
+make sim                             # raccourci Makefile
 ```
-
-Paramètres de la formule : `--amplitude` (A, défaut 0.5), `--period-seconds` (T, défaut 120),
-`--noise` (εt, défaut 0.2), `--peak-factor` (défaut 3). En mode `--duration-seconds`, la
-sortie est imprimée en continu (une ligne par mesure) et un récapitulatif `TOTAL:` est
-affiché à la fin. Chaque mesure est validée contre `docs/contrat-mesure.md` ; le code de
-sortie est non nul si une mesure est non conforme.
 
 ## 4. Vérifications rapides
 
@@ -111,7 +122,7 @@ curl -i -X POST http://localhost:8081/api/measurements \
   -d '{"sensorId":"SENSOR-001","timestamp":"2026-09-30T08:15:00Z","powerKw":3.72,"voltage":226.4,"temperature":29.1}'
 
 # Contenu du stream
-docker exec smartenergy-redis redis-cli XLEN energy-measurements
+docker exec smartenergy-redis redis-cli -a change-me --no-auth-warning XLEN energy-measurements
 
 # Santé des services
 curl http://localhost:8083/actuator/health
@@ -120,32 +131,38 @@ curl http://localhost:8083/actuator/health
 ## 5. Tests
 
 ```bash
-cd collector-service && ./mvnw test
-cd storage-service   && ./mvnw test
-cd analytics-service && ./mvnw test
+mvn -B test
 ```
 
-Voir `docs/tests.md` pour la matrice de tests (T01–T14).
+Voir `docs/tests.md` pour la matrice de recette (scénarios 1–11) et
+`preuves/tests/resultats-modele.md` pour le gabarit de preuves T01–T14.
 
 ## 6. Arrêt
 
 ```bash
-docker-compose --profile app down      # arrête tout (volumes conservés)
-docker-compose --profile app down -v   # arrête ET supprime les volumes
+docker compose down      # arrête tout (volumes conservés)
+docker compose down -v   # arrête ET supprime les volumes (re-joue les inits)
 ```
 
 ## 7. Configuration
 
-Toute la configuration vit dans `.env` (ports, URLs, identifiants, limites mémoire).
-Les services lisent des variables d'environnement (ENF-02). Aucun secret réel n'est commité.
+Toute la configuration vit dans `.env` (copie de `.env.example`) : mots de passe,
+ports, paramètres du simulateur. Les services lisent des variables
+d'environnement (ENF-02) ; les valeurs par défaut des `application.yml`
+permettent un lancement local sans Docker. Aucun secret réel n'est commité.
 
 ## 8. Périmètre / hors périmètre
 
-**Inclus** : simulateur, Collector, Redis Streams, Storage, Cassandra, MongoDB,
-Analytics/API, OpenAPI, Docker Compose, tests.
+**Inclus (MVP)** : simulateur Java, Collector, Redis Streams, Storage, Cassandra,
+Sensor Service, MongoDB, Analytics/API, OpenAPI (springdoc), Docker Compose,
+tests unitaires.
 
-**Exclu du MVP** : prévision IA, dashboard web, API Gateway, JWT, alertes externes,
-Kafka/Spark, Kubernetes, Prometheus/Grafana.
+**Extensions (scaffolding présent, non codées)** : API Gateway
+(`gateway-service/`, fichiers `.example`), prévision IA
+(`ml/`, `models/`, endpoint `/forecast` désactivé par défaut → 501).
+
+**Exclu du MVP** : dashboard web, JWT/rôles, alertes externes, Kafka/Spark,
+Kubernetes, Grafana (les métriques Prometheus sont exposées via Actuator).
 
 ## 9. Outils infra (cycle de vie)
 
@@ -172,12 +189,20 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 
 ## 10. État d'avancement
 
-- [x] Arborescence, configuration externe, Docker Compose (infra + profils + limites).
-- [x] Squelettes Spring Boot compilables (Collector, Storage, Analytics + OpenAPI).
-- [x] Simulateur Python + aperçu autonome (`preview_measurements.py`).
-- [x] Schéma Cassandra + jeux de données d'exemple.
+- [x] Arborescence, configuration externe (`.env.example`), Docker Compose.
+- [x] Contrats partagés (`contracts/`) + tests unitaires.
+- [x] `platform-web` (erreurs RFC 9457, X-Request-Id) et `platform-stream`
+      (boucle consumer XREADGROUP/ACK/DLQ, étape 4).
+- [x] Collector : validation temporelle, endpoint d'ingestion, publication Redis
+      Streams (étapes 1–3) + tests unitaires.
+- [x] Sensor Service : CRUD complet (MongoDB) + tests unitaires.
+- [x] Simulateur Java + `simulator/README.md`.
+- [x] Schéma Cassandra/Mongo + scripts d'initialisation automatiques.
 - [x] Documentation (`docs/`).
-- [ ] Contrôleurs/validation métier (Collector).
-- [ ] Consumer Redis + persistance (Storage).
-- [ ] Endpoints capteurs / historique / analytics (Analytics).
-- [ ] Tests T01–T14 et preuves.
+- [x] Storage : étape 5 (entités Cassandra + tests de mapping Testcontainers).
+- [ ] Storage : étapes 7–8 (writer, consumer, API historique).
+- [ ] Analytics : étapes 8–9 (règles, agrégats, consumer, endpoints).
+- [ ] Étape 11 (métriques stream), étape 12 (limite 10 Ko), prévision 9C,
+      tests d'intégration.
+
+Voir `docs/TODO-MAP.md` pour la liste à jour des fichiers restants.

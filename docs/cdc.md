@@ -242,8 +242,8 @@ XADD energy-measurements MAXLEN ~ 500000 * schemaVersion 1 eventId 7c1f... trace
 - **Groupes** : `storage-group` et `analytics-group`, créés au démarrage de façon idempotente (`XGROUP CREATE ... 0 MKSTREAM`, erreur BUSYGROUP ignorée).
 - **Consumer** : nom `service-hostname` ; lecture `XREADGROUP COUNT 50 BLOCK 2000`.
 - **ACK** : `XACK` uniquement après persistance réussie du lot. Une erreur sur un message est journalisée et n'arrête pas le consumer.
-- **Reprise** : au démarrage puis toutes les 30 s, `XAUTOCLAIM` des messages inactifs depuis plus de 60 s.
-- **Poison / échecs répétés** : structure invalide (champ obligatoire manquant, nombre illisible) → DLQ immédiate ; plus de 5 livraisons → DLQ. DLQ = stream `energy-measurements-dlq` contenant les champs d'origine plus `error`, `failedAt`, `service` ; puis `XACK` de l'original.
+- **Reprise** : au démarrage puis toutes les 30 s, `XPENDING` + `XCLAIM` (D-22) des messages inactifs depuis plus de 60 s.
+- **Poison / échecs répétés** : structure invalide (champ obligatoire manquant, nombre illisible) → DLQ immédiate ; plus de 5 livraisons → DLQ. DLQ = stream `energy-measurements-dlq` contenant les champs d'origine plus `error`, `failedAt`, `service`, `originalId` ; puis `XACK` de l'original.
 - **Rétention** : `MAXLEN ~ 500000` ; alerte si le retard (`lag`) dépasse 50 % de cette valeur.
 
 ## 5.4 Contrats de lecture REST
@@ -434,7 +434,7 @@ Convention : `{usage}:{service}:{identifiant}`.
 ## 7.3 storage-service
 
 - **Entrées** : stream via `storage-group`. **Sorties** : tables Cassandra ; API de lecture 5.4.
-- **Comportement** : lecture par lots → validation de structure → écriture des deux tables → `XACK` du lot réussi → erreurs individuelles vers journal / DLQ sans arrêter le consumer. Reprise `XAUTOCLAIM` au démarrage.
+- **Comportement** : lecture par lots → validation de structure → écriture des deux tables → `XACK` du lot réussi → erreurs individuelles vers journal / DLQ sans arrêter le consumer. Reprise `XPENDING` + `XCLAIM` (D-22) au démarrage.
 - **Idempotence** : clé primaire naturelle (rejouer écrase la même ligne avec les mêmes valeurs).
 - **Métriques** : `energy_persist_duration_seconds`, `energy_persist_errors_total`, `energy_stream_pending`, `energy_stream_lag`.
 - **Tests clés** : mesure envoyée → retrouvée via l'API ; service arrêté 1 minute → toutes les mesures retrouvées au redémarrage ; même message deux fois → une seule ligne ; mesure en retard n'écrase pas `latest`.
@@ -531,20 +531,22 @@ cassandra-init:
   restart: "no"
 ```
 
-**Variables d'environnement principales**
+**Variables d'environnement principales** *(noms réellement lus par les `application.yml`)*
 
 | Variable | Services | Exemple |
 | --- | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | tous | `docker` |
-| `SPRING_DATA_REDIS_HOST` / `PORT` / `PASSWORD` | collector, storage, analytics | `redis` / `6379` / (secret) |
-| `SPRING_CASSANDRA_CONTACT_POINTS` / `LOCAL_DATACENTER` / `KEYSPACE_NAME` | storage | `cassandra:9042` / `datacenter1` / `smartenergy` |
-| `SPRING_DATA_MONGODB_URI` | sensor, analytics | `mongodb://app:(secret)@mongo:27017/sensor_db` |
+| `SERVER_PORT` | tous | `8080` dans Docker (8081-8084 en local) |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | collector, storage, analytics | `redis` / `6379` / (secret) |
+| `CASSANDRA_HOST` / `CASSANDRA_PORT` / `CASSANDRA_DC` | storage | `cassandra` / `9042` / `datacenter1` |
+| `MONGO_HOST` / `MONGO_PORT` + `MONGO_SENSOR_PASSWORD` / `MONGO_ANALYTICS_PASSWORD` | sensor, analytics | `mongo` / `27017` / (secret) |
 | `MEASUREMENT_MAX_AGE` / `MEASUREMENT_MAX_FUTURE` | collector | `PT24H` / `PT5M` |
-| `STREAM_NAME` / `STREAM_MAXLEN` / `STREAM_MAX_DELIVERIES` | collector, storage, analytics | `energy-measurements` / `500000` / `5` |
+| `STREAM_NAME` / `STREAM_MAXLEN` | collector | `energy-measurements` / `500000` |
+| `STREAM_NAME` / `STREAM_MAX_DELIVERIES` | storage, analytics | `energy-measurements` / `5` |
 | `ANALYTICS_DEFAULT_MAX_POWER_KW` / `ANALYTICS_ZSCORE_THRESHOLD` / `ANALYTICS_FORECAST_ENABLED` | analytics | `10` / `3` / `false` |
 | `SENSOR_SERVICE_URL` | analytics | `http://sensor-service:8080` |
 
-**Démarrage cible** : `./mvnw -q package -DskipTests` puis `docker compose up -d --build`, puis `docker compose run --rm simulator`.
+**Démarrage cible** : `mvn -B -q package -DskipTests` puis `docker compose up -d --build`, puis `docker compose run --rm simulator`.
 
 ---
 
@@ -554,7 +556,7 @@ cassandra-init:
 
 - **Unitaires** : validation DTO, calcul d'énergie, seuil, score z, conversions DTO ↔ entités.
 - **Intégration (Testcontainers)** : API → Redis ; Redis → storage ; storage → Cassandra ; analytics → Mongo ; lecture via API.
-- **Contrat** : l'événement publié par le collector est validé contre `contracts/measurement-event.schema.json` ; chaque service vérifie que son OpenAPI généré correspond à `contracts/*.openapi.yaml`.
+- **Contrat** : l'événement publié par le collector est validé contre `contracts/schemas/energy-measurement-event.schema.json` ; chaque route documentée en OpenAPI (springdoc) doit correspondre aux contrats (les fichiers `contracts/*.openapi.yaml` sont **prévus mais non livrés** — seuls des JSON Schemas existent à ce jour).
 - **Bout en bout** : script `scripts/e2e.sh` rejouant les scénarios ci-dessous contre le Compose.
 
 ## 12.2 Matrice de recette (reprend le tableau du guide et l'étend)
@@ -601,7 +603,7 @@ cassandra-init:
 Ces points reposent sur ma connaissance des technologies et **n'ont pas été vérifiés dans la documentation en ligne** ; à contrôler au moment de l'implémentation.
 
 - **Versions** : figer la version de Spring Boot (et Java 17 minimum) dans un POM parent ; vérifier la compatibilité de Spring Data Redis / Cassandra / MongoDB avec cette version.
-- **API Redis Streams côté Spring** : choisir entre `StreamMessageListenerContainer` et une boucle `XREADGROUP` explicite ; la boucle explicite facilite `XAUTOCLAIM`, le comptage de livraisons et la DLQ.
+- **API Redis Streams côté Spring** : choisir entre `StreamMessageListenerContainer` et une boucle `XREADGROUP` explicite ; la boucle explicite facilite la reprise (`XPENDING` + `XCLAIM`), le comptage de livraisons et la DLQ.
 - **Démarrage de Cassandra 5 en Docker** : lent et gourmand en mémoire ; prévoir healthcheck, limite de heap et patience dans les scripts de test.
 - **Spring Data Cassandra** : `local-datacenter` obligatoire (`datacenter1` pour l'image officielle) ; ne pas laisser Spring créer le schéma.
 - **DJL + ONNX** : l'exemple du guide est simplifié ; le chargement d'un `.onnx` demande le moteur ONNX Runtime de DJL et un `Translator` adapté. Alternative plus directe : ONNX Runtime Java.

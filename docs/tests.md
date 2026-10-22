@@ -1,7 +1,29 @@
 # Preuves de tests (matrice de recette)
 
 À compléter au fil de l'avancement. Les scénarios 1 à 7 reprennent le tableau du guide ; 8 à 11 sont ajoutés par le cahier des charges.
-Automatisation partielle : `make e2e` (`scripts/e2e.sh`).
+Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 et 2 ; le reste est commenté TODO).
+
+> **Numérotations** : cette matrice utilise les scénarios **1–11** (CDC) ; le gabarit de
+> preuves `preuves/tests/resultats-modele.md` utilise les labels **T01–T14** du guide.
+> Les deux référent le même recette.
+
+## Tests unitaires présents dans le dépôt (39 tests actifs)
+
+| Classe | Service | Cas |
+|---|---|---|
+| `MeasurementTimeValidatorTest` | collector | 8 (bornes 24 h / 5 min, horloge fixe) |
+| `MeasurementPublisherTest` | collector | 3 (XADD, MAXLEN, 503 Redis KO) |
+| `MeasurementControllerTest` | collector | 4 (202 + X-Event-Id, 400, 503) |
+| `SensorServiceTest` | sensor | 5 (création, doublon, sensorId incohérent, inconnu, page) |
+| `EventIdsTest` | contracts | 4 (UUID v5 déterministe) |
+| `MeasurementEventCodecTest` | contracts | 7 (aller-retour du codec d'événement) |
+| `MeasurementKeyTest` | storage | 3 (clés primaires composites, égalité) |
+| `CassandraMappingTest` | storage | 5 (mapping entités sur Cassandra Testcontainers, D-08 à D-10) |
+
+Squelettes **entièrement commentés** (aucun test exécuté à ce jour) :
+`CollectorIntegrationTest`, `StorageIntegrationTest`, `AnalyticsRulesTest`,
+`AnalyticsIntegrationTest`.
+`mvn -B test` exécute la suite actuelle (contrats + tous les services).
 
 | N° | Scénario | Résultat attendu | Preuve | Résultat obtenu |
 |---|---|---|---|---|
