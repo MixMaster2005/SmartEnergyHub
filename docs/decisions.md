@@ -25,3 +25,4 @@ Version complète avec alternatives écartées : cahier des charges dans Notion 
 | D-19 | Tests d'intégration Testcontainers | Prouve la chaîne réelle |
 | D-20 | REST interne : timeout 2 s, 2 essais, circuit breaker, cache 60 s | Analytics survit à l'arrêt de sensor-service |
 | D-21 | Fenêtres temporelles : mesure ≤ 24 h, futur ≤ 5 min (bornes strictes) | 24 h = reprise d'un capteur après coupure réseau (ses mesures buffered restent exploitables) ; 5 min = tolérance de dérive d'horloge, au-delà l'ordre temporel n'est plus garanti |
+| D-22 | Reprise des messages inactifs via XPENDING + XCLAIM (équivalent d'XAUTOCLAIM) | Spring Data Redis 3.5.0 n'expose pas XAUTOCLAIM ; API typée et portable (Lettuce/Jedis), coût = un aller-retour Redis supplémentaire par passe |
