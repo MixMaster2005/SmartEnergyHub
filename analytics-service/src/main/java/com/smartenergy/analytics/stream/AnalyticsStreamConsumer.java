@@ -97,6 +97,17 @@ public class AnalyticsStreamConsumer extends AbstractStreamConsumer {
         if (fresh.isEmpty()) {
             return;
         }
+        // Doublon intra-lot : deux envois rapproches du meme evenement arrivent dans le meme
+        // lot, AVANT le marquage du dedup. Une seule occurrence par eventId est traitee, sinon
+        // les compteurs seraient incrementes deux fois (CDC 6.5 : un doublon ne compte qu'une fois).
+        List<EnergyMeasurement> uniques = new ArrayList<>(fresh.size());
+        Set<java.util.UUID> eventIdsVus = new HashSet<>();
+        for (EnergyMeasurement m : fresh) {
+            if (eventIdsVus.add(m.eventId())) {
+                uniques.add(m);
+            }
+        }
+        fresh = uniques;
         // ordre des timestamps : l'energie et la monotonie dependent de l'ordre de parcours
         fresh.sort(Comparator.comparing(EnergyMeasurement::timestamp));
 
@@ -120,8 +131,11 @@ public class AnalyticsStreamConsumer extends AbstractStreamConsumer {
     /** Regles 6.5 pour une mesure, dans l'ordre : energie, seuil, score z, puis etat. */
     private Evaluated evaluate(EnergyMeasurement m, SensorRuntime runtime,
                                SensorClient.Threshold threshold) {
+        // Premiere mesure d'un capteur : sans etat prealable, lastPowerKw est null et le
+        // passage en double provoquerait un NPE au déboitage (energie = 0, cf. rules).
+        double puissancePrecedente = runtime.lastPowerKw == null ? 0.0 : runtime.lastPowerKw;
         double energy = AnalyticsRules.energyIncrementKwh(
-                runtime.lastEnergyBasisTs, runtime.lastPowerKw, m.timestamp(),
+                runtime.lastEnergyBasisTs, puissancePrecedente, m.timestamp(),
                 props.expectedIntervalSeconds(), props.energyGapFactor());
 
         boolean exceeded = threshold.active()

@@ -53,8 +53,8 @@ readiness `readinessState,redis,mongo`. Dédup Redis : clé `dedup:analytics:{ev
 traitement, marquée après écriture Mongo réussie).
 
 ## À faire (dans l'ordre)
-1. `AnalyticsIntegrationTest` — scénarios 4, 8, 11 (l'étape 8 étant livrée, la preuve du
-   scénario 4 passe par `/anomalies`)
+1. _(rien : `AnalyticsIntegrationTest` est livré — scénarios 4, 8 et 11, Redis + MongoDB en
+   Testcontainers et un faux sensor-service HTTP embarqué pour le scénario 11.)_
 2. *(extension)* `forecast/ForecastService` + `ml/` — désactivé par défaut (`forecast.enabled=false`, 501 `FORECAST_DISABLED`)
 
 ## Pièges
@@ -67,3 +67,9 @@ traitement, marquée après écriture Mongo réussie).
 - Un sinus gonfle l'écart-type : documenter la limite du z-score.
 - Dédup : vérifier avant, marquer **après** les écritures Mongo ; une panne entre les deux peut compter une
   mesure deux fois (biais négligeable, documenté) — l'index unique `(eventId, type)` protège les anomalies.
+- **Première mesure d'un capteur** : l'état `sensor_state` est absent, `lastPowerKw` est `null`.
+  Le consumer neutralise l'incrément d'énergie (plutôt que de déboiter un `double` sur `null`,
+  ce qui rejetait tout le lot en rejeu infini puis en DLQ — bug trouvé par la recette e2e).
+- **Doublon intra-lot** : deux envois rapprochés du même évènement arrivent dans le même lot,
+  *avant* le marquage du dedup Redis ; le consumer ne garde qu'une occurrence par `eventId`,
+  sinon les compteurs seraient incrémentés deux fois (scénario 8).
