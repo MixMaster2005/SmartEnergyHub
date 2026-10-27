@@ -7,7 +7,7 @@ Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 et 2 ; le 
 > preuves `preuves/tests/resultats-modele.md` utilise les labels **T01–T14** du guide.
 > Les deux référent le même recette.
 
-## Tests unitaires présents dans le dépôt (43 tests actifs)
+## Tests unitaires présents dans le dépôt (56 tests actifs)
 
 | Classe | Service | Cas |
 |---|---|---|
@@ -20,10 +20,11 @@ Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 et 2 ; le 
 | `MeasurementKeyTest` | storage | 3 (clés primaires composites, égalité) |
 | `CassandraMappingTest` | storage | 5 (mapping entités sur Cassandra Testcontainers, D-08 à D-10) |
 | `CassandraMeasurementWriterTest` | storage | 4 (rejeu → une seule ligne, `USING TIMESTAMP` sur `latest`, nulls omis, erreur propagée + métriques, D-09 à D-10, D-23) |
+| `AnalyticsRulesTest` | analytics | 9 (énergie rectangle tronquée, seuil strict, Welford, score z, limites documentées) |
+| `StreamLagMetricsTest` | platform | 4 (noms de métriques + tag `group`, refresh pending/lag, tolérance d'une panne Redis, lag inconnu/groupe absent = 0, D-24) |
 
 Squelettes **entièrement commentés** (aucun test exécuté à ce jour) :
-`CollectorIntegrationTest`, `StorageIntegrationTest`, `AnalyticsRulesTest`,
-`AnalyticsIntegrationTest`.
+`CollectorIntegrationTest`, `StorageIntegrationTest`, `AnalyticsIntegrationTest`.
 `mvn -B test` exécute la suite actuelle (contrats + tous les services).
 
 | N° | Scénario | Résultat attendu | Preuve | Résultat obtenu |
@@ -32,7 +33,7 @@ Squelettes **entièrement commentés** (aucun test exécuté à ce jour) :
 | 2 | Mesure sans `sensorId` | HTTP 400 Problem Details, aucune entrée | réponse + `XLEN` inchangé | À compléter |
 | 3 | Historique d'un capteur | Liste ordonnée, paginée, bornée par `from`/`to` | appel API | À compléter |
 | 4 | Injection d'un pic ×3 | Anomalie `THRESHOLD` listée | `/anomalies` | À compléter |
-| 5 | Arrêt de storage-service pendant l'envoi | Messages conservés dans Redis (pending/lag en hausse) | `XINFO GROUPS` | À compléter |
+| 5 | Arrêt de storage-service pendant l'envoi | Messages conservés dans Redis (pending/lag en hausse) | `XINFO GROUPS` + `/actuator/metrics/energy_stream_pending` | À compléter |
 | 6 | Redémarrage de storage-service | Reprise, aucune mesure perdue (comptage Cassandra = mesures acceptées) | comptage | À compléter |
 | 7 | Redémarrage complet de la plateforme | Données toujours présentes (volumes) | appels API | À compléter |
 | 8 | Doublon | Une seule ligne Cassandra, compteur analytics inchangé | API + agrégat | À compléter |

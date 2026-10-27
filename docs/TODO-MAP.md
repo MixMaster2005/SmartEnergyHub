@@ -17,20 +17,6 @@ simulateur, persistance storage des étapes 5 et 7, scripts de base de données,
 | `analytics-service/src/main/java/com/smartenergy/analytics/service/AnalyticsQueryService.java` | Lecture des indicateurs : summary, daily-summary, anomalies, exceedances |
 | `analytics-service/src/main/java/com/smartenergy/analytics/web/AnalyticsController.java` | Routes /api/analytics/** et alias /api/sensors/{id}/daily-summary |
 
-## Étape 9 · Analytics (niveaux A et B)  _(plan : J6)_
-
-| Fichier | À faire |
-|---|---|
-| `analytics-service/src/main/java/com/smartenergy/analytics/rules/AnalyticsRules.java` | Regles de calcul pures : energie, seuil, score z (Welford) |
-| `analytics-service/src/main/java/com/smartenergy/analytics/service/AggregateWriter.java` | Mise a jour incrementale des agregats et insertion des anomalies (MongoDB) |
-| `analytics-service/src/main/java/com/smartenergy/analytics/stream/AnalyticsStreamConsumer.java` | Consommateur Redis de l'analytics-group (dedup, regles, agregats) |
-
-## Étape 11 · Observabilité  _(plan : J7-J8)_
-
-| Fichier | À faire |
-|---|---|
-| `platform/platform-stream/src/main/java/com/smartenergy/platform/stream/StreamLagMetrics.java` | Metriques Micrometer du stream (pending, lag) |
-
 ## Étape 12 · Sécurité  _(plan : J8)_
 
 | Fichier | À faire |
@@ -49,7 +35,6 @@ simulateur, persistance storage des étapes 5 et 7, scripts de base de données,
 |---|---|
 | `collector-service/src/test/java/com/smartenergy/collector/CollectorIntegrationTest.java` | Test d'integration du collector (Testcontainers Redis) |
 | `storage-service/src/test/java/com/smartenergy/storage/StorageIntegrationTest.java` | Tests d'integration du storage (Testcontainers Redis + Cassandra) |
-| `analytics-service/src/test/java/com/smartenergy/analytics/rules/AnalyticsRulesTest.java` | Tests unitaires des regles analytiques |
 | `analytics-service/src/test/java/com/smartenergy/analytics/AnalyticsIntegrationTest.java` | Tests d'integration analytics (Testcontainers Redis + MongoDB) |
 
-**Total : 15 fichiers à compléter.**
+**Total : 10 fichiers à compléter.**

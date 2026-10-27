@@ -192,7 +192,8 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 - [x] Arborescence, configuration externe (`.env.example`), Docker Compose.
 - [x] Contrats partagés (`contracts/`) + tests unitaires.
 - [x] `platform-web` (erreurs RFC 9457, X-Request-Id) et `platform-stream`
-      (boucle consumer XREADGROUP/ACK/DLQ, étape 4).
+      (boucle consumer XREADGROUP/ACK/DLQ étape 4, métriques de stream
+      `energy_stream_pending`/`energy_stream_lag` étape 11).
 - [x] Collector : validation temporelle, endpoint d'ingestion, publication Redis
       Streams (étapes 1–3) + tests unitaires.
 - [x] Sensor Service : CRUD complet (MongoDB) + tests unitaires.
@@ -202,8 +203,8 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 - [x] Storage : étape 5 (entités Cassandra + tests de mapping Testcontainers).
 - [x] Storage : étape 7 (writer idempotent asynchrone, consumer, tests Testcontainers).
 - [ ] Storage : étape 8 (API historique).
-- [ ] Analytics : étapes 8–9 (règles, agrégats, consumer, endpoints).
-- [ ] Étape 11 (métriques stream), étape 12 (limite 10 Ko), prévision 9C,
-      tests d'intégration.
+- [x] Analytics : étape 9 (règles, agrégats, consumer, dédup).
+- [ ] Analytics : étape 8 (API de consultation : summary, anomalies, exceedances).
+- [ ] Étape 12 (limite 10 Ko), prévision 9C, tests d'intégration.
 
 Voir `docs/TODO-MAP.md` pour la liste à jour des fichiers restants.
