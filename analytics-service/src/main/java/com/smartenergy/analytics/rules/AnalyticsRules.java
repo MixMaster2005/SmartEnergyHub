@@ -1,59 +1,115 @@
 package com.smartenergy.analytics.rules;
 
-// ========================================================================
-// TODO(etape-9) - Regles de calcul pures : energie, seuil, score z (Welford)
-// ========================================================================
-// Guide : etape 9 (niveaux A et B), formules (2), (3), (4). CDC : section 6.5.
-// Classe SANS Spring ni base de donnees : de simples fonctions testables. C'est le coeur "metier" a bien comprendre
-// et a tester en premier (livrable : "calculs d'energie, detection d'anomalies" en tests unitaires).
-//
-// 1) Energie (rectangle a gauche)
-//    energyIncrementKwh(previousTs, previousPowerKw, currentTs, expectedIntervalSeconds, gapFactor)
-//    - dtHours = (currentTs - previousTs) en heures, PLAFONNE a expectedIntervalSeconds x gapFactor (trous de donnees).
-//    - Si currentTs <= previousTs (rejeu, retard) -> 0.0 : on ne compte pas deux fois.
-//    - increment = previousPowerKw x dtHours.  (E = somme de P x dt, en kWh si P en kW.)
-//
-// 2) Seuil
-//    isThresholdExceeded(powerKw, maxPowerKw) = powerKw > maxPowerKw   (strict, comme Pt > Pmax du guide).
-//
-// 3) Statistiques en ligne de Welford (etat : n, mean, m2)
-//    update(state, x) :  n' = n+1 ; delta = x - mean ; mean' = mean + delta/n' ; m2' = m2 + delta*(x - mean').
-//    stddev = sqrt(m2 / (n-1)) pour n >= 2 (ecart-type d'echantillon).
-//    zScore(state, x) = (x - mean) / stddev ; renvoyer "pas de score" si n < minSamples ou stddev == 0.
-//    Regle : les mesures DEJA anormales ne mettent PAS a jour l'etat (sinon mu et sigma sont pollues).
-//
-// 4) Decision : anomalie ZSCORE si |z| > zscore.threshold (3.0). Severite : THRESHOLD = HIGH, ZSCORE = MEDIUM.
-//
-// Jeu de test de reference (a verifier a la main) :
-//  - puissance constante 4 kW pendant 1 h a 1 mesure / 2 s -> energie ~ 4.0 kWh (a quelques millipourcents pres) ;
-//  - echantillon [1,2,3,4,5] -> mean 3, ecart-type d'echantillon 1,5811 ; z(10) = (10-3)/1,5811 = 4,427 -> anomalie ;
-//  - un trou de 10 min entre deux mesures -> pas de temps plafonne a 10 s (2 s x 5).
-// Limite a documenter : un profil sinusoidal gonfle sigma (compromis simplicite / precision).
-//
-// -- Squelette a activer : decommenter (Ctrl+/) puis completer --
-//
-// import java.time.Instant;
-//
-// public final class AnalyticsRules {
-//     private AnalyticsRules() {}
-//
-//     public record Welford(long n, double mean, double m2) {
-//         public static Welford empty() { return new Welford(0, 0.0, 0.0); }
-//         public Welford add(double x) { /* mise a jour de Welford */ throw new UnsupportedOperationException(); }
-//         public double stddev() { /* sqrt(m2 / (n - 1)) si n >= 2 */ throw new UnsupportedOperationException(); }
-//     }
-//
-//     public static double energyIncrementKwh(Instant previousTs, double previousPowerKw, Instant currentTs,
-//                                             int expectedIntervalSeconds, int gapFactor) {
-//         throw new UnsupportedOperationException("TODO etape 9");
-//     }
-//
-//     public static boolean isThresholdExceeded(double powerKw, double maxPowerKw) {
-//         throw new UnsupportedOperationException("TODO etape 9");
-//     }
-//
-//     /** @return le score z, ou null si n < minSamples ou ecart-type nul. */
-//     public static Double zScore(Welford state, double x, int minSamples) {
-//         throw new UnsupportedOperationException("TODO etape 9");
-//     }
-// }
+import java.time.Duration;
+import java.time.Instant;
+
+/**
+ * Coeur metier analytics : energie, depassement de seuil et score z (CDC section 6.5, decisions
+ * D-13 et D-14). Guide : etape 9 (niveaux A et B), formules (2), (3) et (4).
+ *
+ * <p>Classe STRICTEMENT PURE : aucun Spring, aucune base, aucun effet de bord. Chaque fonction est
+ * deterministe et testable isolément ({@code AnalyticsRulesTest}) ; c'est le livrable « calculs
+ * d'energie, detection d'anomalies » de l'etape 6 du plan (J6).
+ *
+ * <ul>
+ *   <li><b>Energie (rectangle a gauche)</b> : pour une mesure a l'instant t,
+ *       {@code E += P(precedente) x dt} avec dt en heures = ecart reel avec la mesure precedente du
+ *       capteur, <b>plafonne</b> a {@code expectedIntervalSeconds x gapFactor} pour ne pas compter
+ *       les trous de donnees. Une mesure dont le timestamp est inferieur ou egal au precedent
+ *       (rejeu, retard) rapporte 0 : l'energie n'est jamais comptee deux fois (count/min/max sont
+ *       de toute facon mis a jour par l'agregat).</li>
+ *   <li><b>Seuil</b> : depassement STRICT, {@code powerKw > maxPowerKw} (comme {@code Pt > Pmax}
+ *       du guide) ; l'egalite n'est pas une anomalie. Seuil par defaut 10 kW si capteur inconnu
+ *       (voir {@code SensorClient}).</li>
+ *   <li><b>Score z</b> : statistiques en ligne de Welford (etaat {@code (n, mean, m2)} stocke dans
+ *       {@code sensor_state}), ecart-type d'echantillon {@code sqrt(m2 / (n - 1))} pour
+ *       {@code n >= 2}. Le score n'est produit que si {@code n >= minSamples} et {@code stddev > 0}
+ *       ; anomalie ZSCORE si {@code |z| > 3} (parametre). Regle essentielle : les mesures DEJA
+ *       anormales ne mettent PAS a jour l'etat, sinon mu et sigma sont pollues par le pic.</li>
+ *   <li><b>Severites</b> : THRESHOLD = HIGH, ZSCORE = MEDIUM (CDC 6.5).</li>
+ * </ul>
+ *
+ * <p><b>Limits documentees</b> : un profil sinusoïdal gonfle sigma (compromis simplicite /
+ * precision, variante par tranche horaire = amelioration possible) ; un fort desordre temporel
+ * fausse legerement l'energie (un recalcul nocturne depuis Cassandra est envisageable, D-13).
+ */
+public final class AnalyticsRules {
+
+    private AnalyticsRules() {}
+
+    /**
+     * Etat statistique d'un capteur pour le score z, immuable : la mise a jour renvoie un nouvel
+     * exemplaire (D-13, {@code sensor_state} = n, mean, m2).
+     */
+    public record Welford(long n, double mean, double m2) {
+
+        public static Welford empty() {
+            return new Welford(0, 0.0, 0.0);
+        }
+
+        /**
+         * Ajoute un echantillon (algorithme de Welford) : n' = n + 1 ; delta = x - mean ;
+         * mean' = mean + delta / n' ; m2' = m2 + delta * (x - mean').
+         */
+        public Welford add(double x) {
+            long nPlusOne = n + 1;
+            double delta = x - mean;
+            double meanPrime = mean + delta / nPlusOne;
+            double m2Prime = m2 + delta * (x - meanPrime);
+            return new Welford(nPlusOne, meanPrime, m2Prime);
+        }
+
+        /** Ecart-type d'echantillon {@code sqrt(m2 / (n - 1))}, 0 si moins de deux echantillons. */
+        public double stddev() {
+            return n >= 2 ? Math.sqrt(m2 / (n - 1)) : 0.0;
+        }
+    }
+
+    /**
+     * Increment d'energie (kWh) du rectangle a gauche entre la mesure precedente du capteur et la
+     * mesure courante : {@code P(precedente) x dt}, dt en heures.
+     *
+     * @param previousTs timestamp de la mesure precedente du capteur
+     * @param previousPowerKw puissance (kW) de cette mesure precedente
+     * @param currentTs timestamp de la mesure courante
+     * @param expectedIntervalSeconds intervalle nominal des capteurs (secondes)
+     * @param gapFactor plafond du pas de temps, en multiples de l'intervalle attendu
+     * @return 0.0 si le temps n'avance pas (rejeu ou retard) ou si la mesure precedente est absente
+     */
+    public static double energyIncrementKwh(Instant previousTs, double previousPowerKw, Instant currentTs,
+                                            int expectedIntervalSeconds, int gapFactor) {
+        if (previousTs == null) {
+            return 0.0; // pas de mesure precedente connue : aucun pas de temps a integrer
+        }
+        Duration gap = Duration.between(previousTs, currentTs);
+        if (gap.isNegative() || gap.isZero()) {
+            return 0.0; // rejeu ou retard : on ne compte pas deux fois
+        }
+        long maxGapSeconds = (long) expectedIntervalSeconds * gapFactor;
+        long gapSeconds = Math.min(gap.toSeconds(), maxGapSeconds); // plafond des trous de donnees
+        double dtHours = gapSeconds / 3600.0;
+        return previousPowerKw * dtHours;
+    }
+
+    /** Depassement de seuil STRICT : P == Pmax n'est pas une anomalie (Pt > Pmax du guide). */
+    public static boolean isThresholdExceeded(double powerKw, double maxPowerKw) {
+        return powerKw > maxPowerKw;
+    }
+
+    /**
+     * Score z de l'echantillon x dans l'etat courant.
+     *
+     * @return (x - mean) / stddev, ou {@code null} si l'etat est trop court ({@code n < minSamples})
+     *         ou si l'ecart-type est nul (serie constante : rien d'anormal a detecter)
+     */
+    public static Double zScore(Welford state, double x, int minSamples) {
+        if (state.n() < minSamples) {
+            return null;
+        }
+        double stddev = state.stddev();
+        if (stddev == 0.0) {
+            return null;
+        }
+        return (x - state.mean()) / stddev;
+    }
+}
