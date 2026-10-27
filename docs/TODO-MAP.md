@@ -5,14 +5,7 @@ Chaque fichier contient : le guide/CDC de référence, les étapes à suivre, le
 puis un **squelette commenté** à décommenter (`Ctrl+/`) et à compléter.
 
 Ordre conseillé : de haut en bas. Les classes déjà opérationnelles (contrats, plomberie web, sensor-service,
-simulateur, scripts de base de données, Docker) ne figurent pas ici.
-
-## Étape 7 · Storage Service  _(plan : J3-J4)_
-
-| Fichier | À faire |
-|---|---|
-| `storage-service/src/main/java/com/smartenergy/storage/service/CassandraMeasurementWriter.java` | Ecriture idempotente des mesures dans Cassandra |
-| `storage-service/src/main/java/com/smartenergy/storage/stream/StorageStreamConsumer.java` | Consommateur Redis du storage-group |
+simulateur, persistance storage des étapes 5 et 7, scripts de base de données, Docker) ne figurent pas ici.
 
 ## Étape 8 · API de consultation  _(plan : J5)_
 
@@ -59,4 +52,4 @@ simulateur, scripts de base de données, Docker) ne figurent pas ici.
 | `analytics-service/src/test/java/com/smartenergy/analytics/rules/AnalyticsRulesTest.java` | Tests unitaires des regles analytiques |
 | `analytics-service/src/test/java/com/smartenergy/analytics/AnalyticsIntegrationTest.java` | Tests d'integration analytics (Testcontainers Redis + MongoDB) |
 
-**Total : 17 fichiers à compléter.**
+**Total : 15 fichiers à compléter.**

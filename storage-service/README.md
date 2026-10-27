@@ -32,26 +32,39 @@ Application, `application.yml` (Redis + Cassandra), schéma CQL + conteneur
 d'initialisation, healthchecks ; boucle de consommation partagée
 `platform-stream/AbstractStreamConsumer` (étape 4 : XREADGROUP, ACK, reprise, DLQ) ;
 entités Cassandra (étape 5 : `MeasurementKey` composite, `MeasurementByDayEntity`,
-`LatestMeasurementEntity`, factories `from(EnergyMeasurement)`) + tests
-(`MeasurementKeyTest`, `CassandraMappingTest` avec Cassandra Testcontainers et
-application de `scripts/init-cassandra.cql`).
+`LatestMeasurementEntity`, factories `from(EnergyMeasurement)`) ; persistance
+(étape 7 : `service/CassandraMeasurementWriter` — 2 upserts idempotents, `USING
+TIMESTAMP` = temps d'événement sur `latest`, écriture asynchrone du driver
+(D-23), métriques `energy_persist_duration_seconds` / `energy_persist_errors_total`
+; `stream/StorageStreamConsumer` — branche le writer sur la boucle partagée,
+ACK uniquement après persistance) + tests (`MeasurementKeyTest`,
+`CassandraMappingTest`, `CassandraMeasurementWriterTest` : rejeu, mesure en
+retard, nulls omis, erreurs — Cassandra Testcontainers et application de
+`scripts/init-cassandra.cql`, helpers dans `CassandraTestSupport`).
 
 ## À faire (dans l'ordre)
-1. `service/CassandraMeasurementWriter` — 2 upserts idempotents, **sans null explicite** (étape 7)
-2. `stream/StorageStreamConsumer` — branche le writer sur la boucle partagée (étape 7)
-3. `service/HistoryCursor`, `MeasurementQueryService`, `web/MeasurementQueryController` (étape 8)
-4. `StorageIntegrationTest` — scénarios 3, 5, 6, 8 (cf. `docs/tests.md`)
+1. `service/HistoryCursor`, `MeasurementQueryService`, `web/MeasurementQueryController` (étape 8)
+2. `StorageIntegrationTest` — scénarios 5, 6, 8 ; scénario 3 une fois l'étape 8 livrée (cf. `docs/tests.md`)
 
 ## Pièges
 - **ACK après persistance** uniquement, sinon perte silencieuse.
+- Écriture asynchrone (D-23) : le lot est attendu d'un seul `allOf().join()` ; la première
+  erreur remonte telle quelle → pas d'ACK → **tout le lot** est rejoué (sans danger, writer
+  idempotent). Ne jamais acquitter un lot partiellement écrit.
 - Une requête **par jour** de la plage ; jamais de `IN` sur la clé de partition.
-- Null explicite = tombstone : omettre les colonnes absentes.
+- Null explicite = tombstone : omettre les colonnes absentes (Spring Data les omit par défaut,
+  ne pas activer `insertNulls`).
+- `USING TIMESTAMP` attend des **microsecondes** : passer un `Instant` à `InsertOptions`
+  (`timestamp(Instant)` convertit), jamais un `long` en millis.
 - Cassandra met 1 à 2 minutes à démarrer (le Compose attend `cassandra-init`).
 - Dans `application.yml`, le bloc `cassandra:` doit être **sous `data:`** (Spring lit
   `spring.data.cassandra.*`) ; s'il est au même niveau que `data:`, tout le bloc est
   ignoré silencieusement et le driver retombe sur `127.0.0.1:9042`.
 
-## Critère de validation (étape 7)
-Les mesures envoyées au collector apparaissent dans les tables Cassandra (vérification
-via `cqlsh` à l'étape 7 ; via `GET /api/measurements/{sensorId}` une fois l'étape 8
-livrée) ; l'arrêt puis le redémarrage du service ne perd rien.
+## Critère de validation (étape 7 — satisfait)
+Le writer et le consumer sont livrés et couverts par `CassandraMeasurementWriterTest`
+(rejeu → une seule ligne, mesure en retard sans effet sur `latest`, nulls omis, métriques,
+erreur propagée). Reste à vérifier en manuel de bout en bout : mesure envoyée au collector
+retrouvée dans Cassandra via `cqlsh` (et `GET /api/measurements/{sensorId}` une fois l'étape 8
+livrée) ; l'arrêt puis le redémarrage du service ne perd rien (scénarios 5 et 6,
+`StorageIntegrationTest`).

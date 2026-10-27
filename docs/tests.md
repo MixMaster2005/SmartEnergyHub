@@ -7,7 +7,7 @@ Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 et 2 ; le 
 > preuves `preuves/tests/resultats-modele.md` utilise les labels **T01–T14** du guide.
 > Les deux référent le même recette.
 
-## Tests unitaires présents dans le dépôt (39 tests actifs)
+## Tests unitaires présents dans le dépôt (43 tests actifs)
 
 | Classe | Service | Cas |
 |---|---|---|
@@ -19,6 +19,7 @@ Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 et 2 ; le 
 | `MeasurementEventCodecTest` | contracts | 7 (aller-retour du codec d'événement) |
 | `MeasurementKeyTest` | storage | 3 (clés primaires composites, égalité) |
 | `CassandraMappingTest` | storage | 5 (mapping entités sur Cassandra Testcontainers, D-08 à D-10) |
+| `CassandraMeasurementWriterTest` | storage | 4 (rejeu → une seule ligne, `USING TIMESTAMP` sur `latest`, nulls omis, erreur propagée + métriques, D-09 à D-10, D-23) |
 
 Squelettes **entièrement commentés** (aucun test exécuté à ce jour) :
 `CollectorIntegrationTest`, `StorageIntegrationTest`, `AnalyticsRulesTest`,

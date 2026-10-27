@@ -200,7 +200,8 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 - [x] Schéma Cassandra/Mongo + scripts d'initialisation automatiques.
 - [x] Documentation (`docs/`).
 - [x] Storage : étape 5 (entités Cassandra + tests de mapping Testcontainers).
-- [ ] Storage : étapes 7–8 (writer, consumer, API historique).
+- [x] Storage : étape 7 (writer idempotent asynchrone, consumer, tests Testcontainers).
+- [ ] Storage : étape 8 (API historique).
 - [ ] Analytics : étapes 8–9 (règles, agrégats, consumer, endpoints).
 - [ ] Étape 11 (métriques stream), étape 12 (limite 10 Ko), prévision 9C,
       tests d'intégration.
