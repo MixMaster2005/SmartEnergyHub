@@ -1,8 +1,8 @@
 # analytics-service (port local 8083, 8080 dans Docker)
 
 **Rôle** : transformer les mesures en information — agrégats horaires/quotidiens, dépassements de seuil, anomalies, prévision
-(EF-08 à EF-13). **Propriétaire** de MongoDB `analytics_db`. Doit consommer le stream via **`analytics-group`**
-(indépendant du stockage) — *le consommateur reste à implémenter (étape 9) ; seul le groupe est configuré aujourd'hui*.
+(EF-08 à EF-13). **Propriétaire** de MongoDB `analytics_db`. Consomme le stream via **`analytics-group`**
+(indépendant du stockage) — consumer, règles et agrégats livrés à l'étape 9.
 Swagger UI (springdoc via platform-web) : http://localhost:8083/swagger-ui.html — aucune route analytics n'y figure tant que
 l'étape 8 n'est pas livrée (EF-17 : documenter toutes les routes en OpenAPI avec exemples).
 
@@ -21,34 +21,41 @@ Aucune route `/api/analytics/**` n'est encore câblée ; contrat cible :
 | `GET /api/analytics/exceedances?threshold&from&to` | `threshold` **obligatoire** ; sans dates : état courant ; avec : maximum quotidien |
 | `GET /api/analytics/{sensorId}/forecast?horizonHours` | **extension** ; défaut 6 h, plage 1–24 ; 501 `FORECAST_DISABLED` si inactif |
 
-## Règles de calcul (CDC 6.5) — *à implémenter dans* `rules/AnalyticsRules`
-Énergie (rectangle à gauche, pas de temps plafonné à 5 × 2 s) · seuil strict `P > Pmax` · score z par Welford (min 30 échantillons, seuil 3,
-mesures anormales exclues des statistiques) · sévérité `THRESHOLD`=HIGH, `ZSCORE`=MEDIUM.
-Métriques attendues (CDC 7.5) : `energy_anomalies_detected_total{type}`, `energy_forecast_latency_seconds`.
+## Règles de calcul (CDC 6.5) — *(étape 9, livrées)*
+Implémentées dans `rules/AnalyticsRules` (classe **pure**, testée par `AnalyticsRulesTest` — 9 cas) :
+énergie rectangle à gauche (pas de temps plafonné à 5 × 2 s, `0` si timestamp non croissant) · seuil strict `P > Pmax` ·
+score z par Welford (min 30 échantillons, seuil 3, mesures anormales exclues des statistiques) ·
+sévérité `THRESHOLD`=HIGH, `ZSCORE`=MEDIUM.
+Métriques (CDC 7.5) : `energy_anomalies_detected_total{type}` (livrée), `energy_forecast_latency_seconds` (9C).
 
 ## Déjà fait
 Application, propriétés, `Clock`, documents Mongo (records), `application.yml`, Actuator + Swagger.
 Client REST vers sensor-service : `client/SensorClient` (cache Redis 60 s, clé `cache:sensor:{id}`,
 **seuil par défaut 10 kW** en repli, ne lève jamais d'exception) + `client/SensorGateway`
 (`GET /api/sensors/{id}` avec retry Resilience4j : 2 tentatives ; circuit breaker : fenêtre 10, seuil 50 %, ouverture 10 s).
+**Étape 9** : `rules/AnalyticsRules` (règles pures) + `AnalyticsRulesTest`, `service/AggregateWriter`
+(micro-batch D-14, upserts atomiques `$inc`/`$min`/`$max`/`$setOnInsert`/`$set`, anomalies idempotentes
+via l'index unique `(eventId, type)`), `stream/AnalyticsStreamConsumer` (dédupe avant/après écriture,
+tri par timestamp, seuil via `SensorClient`, état Welford dans `sensor_state`, métrique
+`energy_anomalies_detected_total{type}`).
 
 ## Configuration (`application.yml`)
 `SERVER_PORT` (8083 en local, 8080 dans Docker) · `REDIS_HOST/PORT/PASSWORD` · `MONGO_HOST/PORT` +
 `MONGO_ANALYTICS_PASSWORD` · `SENSOR_SERVICE_URL` · `STREAM_NAME` · `STREAM_MAX_DELIVERIES` ·
 `ANALYTICS_DEFAULT_MAX_POWER_KW` (10.0) · `ANALYTICS_ZSCORE_THRESHOLD` (3.0) ·
 `ANALYTICS_FORECAST_ENABLED` (false) + `smartenergy.analytics.forecast.model-path` (`models/energy.onnx`) ·
-readiness `readinessState,redis,mongo`. Dédup Redis : clé `dedup:analytics:{eventId}`, TTL 24 h (à écrire, étape 9).
+readiness `readinessState,redis,mongo`. Dédup Redis : clé `dedup:analytics:{eventId}`, TTL 24 h (vérifiée avant
+traitement, marquée après écriture Mongo réussie).
 
 ## À faire (dans l'ordre)
-1. `rules/AnalyticsRules` + `AnalyticsRulesTest` — **commencer ici** (fonctions pures, jeu de test de référence dans l'en-tête)
-2. `service/AggregateWriter` — upserts atomiques (`$inc`, `$min`, `$max`, `$setOnInsert`), anomalies idempotentes
-3. `stream/AnalyticsStreamConsumer` — dédup (vérifier avant, marquer après), règles, agrégats
-4. `service/AnalyticsQueryService`, `web/AnalyticsController` (étape 8) — annoter en OpenAPI
-5. `AnalyticsIntegrationTest` — scénarios 4, 8, 11
-6. *(extension)* `forecast/ForecastService` + `ml/` — désactivé par défaut (`forecast.enabled=false`, 501 `FORECAST_DISABLED`)
+1. `service/AnalyticsQueryService`, `web/AnalyticsController` (étape 8) — annoter en OpenAPI
+2. `AnalyticsIntegrationTest` — scénarios 4, 8, 11 (après l'étape 8 : la preuve du scénario 4 passe par `/anomalies`)
+3. *(extension)* `forecast/ForecastService` + `ml/` — désactivé par défaut (`forecast.enabled=false`, 501 `FORECAST_DISABLED`)
 
 ## Pièges
 - Traiter les mesures d'un lot **dans l'ordre des timestamps**.
 - `summary` : moyenne = somme des sommes / somme des comptes (pas la moyenne des moyennes).
-- Limite connue : mesures très en retard → énergie légèrement faussée (recalcul nocturne = amélioration possible).
+- Mesures très en retard → énergie légèrement faussée (recalcul nocturne = amélioration possible).
 - Un sinus gonfle l'écart-type : documenter la limite du z-score.
+- Dédup : vérifier avant, marquer **après** les écritures Mongo ; une panne entre les deux peut compter une
+  mesure deux fois (biais négligeable, documenté) — l'index unique `(eventId, type)` protège les anomalies.
