@@ -52,9 +52,8 @@ best-effort) ;
 `HistoryCursorTest`).
 
 ## À faire (dans l'ordre)
-1. `StorageIntegrationTest` — scénarios 5, 6, 8 et 3 (historique de bout en
-   bout : scénario 3 testable dès maintenant que l'étape 8 est livrée ;
-   cf. `docs/tests.md`)
+_(rien : `StorageIntegrationTest` est livré — scénarios 3, 5, 6 et 8 en
+Testcontainers Cassandra + Redis)._
 
 ## Pièges
 - **ACK après persistance** uniquement, sinon perte silencieuse.
@@ -69,16 +68,19 @@ best-effort) ;
 - `USING TIMESTAMP` attend des **microsecondes** : passer un `Instant` à `InsertOptions`
   (`timestamp(Instant)` convertit), jamais un `long` en millis.
 - Cassandra met 1 à 2 minutes à démarrer (le Compose attend `cassandra-init`).
-- Dans `application.yml`, le bloc `cassandra:` doit être **sous `data:`** (Spring lit
-  `spring.data.cassandra.*`) ; s'il est au même niveau que `data:`, tout le bloc est
-  ignoré silencieusement et le driver retombe sur `127.0.0.1:9042`.
+- Dans `application.yml`, le bloc `cassandra:` doit être au **premier niveau** :
+  Spring Boot 3.5 lit `spring.cassandra.*` (l'ancien préfixe `spring.data.cassandra.*`
+  n'existe plus et est **ignoré silencieusement** → le driver retombe sur
+  `127.0.0.1:9042` et le service crash-loop en conteneur). Redis, lui, reste bien sous
+  `data:` (`spring.data.redis.*`).
 
 ## Critère de validation (étapes 7 et 8 — satisfaits)
 Le writer, le consumer et l'API de lecture sont livrés et couverts par
 `CassandraMeasurementWriterTest` (rejeu → une seule ligne, mesure en retard sans effet sur
 `latest`, nulls omis, métriques, erreur propagée) et `HistoryCursorTest` (aller-retour du
-curseur, jetons corrompus rejetés en 400). Reste à vérifier en manuel de bout en bout :
-mesure envoyée au collector retrouvée dans Cassandra via `cqlsh` **et** via
-`GET /api/measurements/{sensorId}` (scénario 3 de `docs/tests.md`, débloqué par l'étape 8) ;
-l'arrêt puis le redémarrage du service ne perd rien (scénarios 5 et 6,
-`StorageIntegrationTest`).
+curseur, jetons corrompus rejetés en 400). L'intégration de bout en bout est prouvée par
+`StorageIntegrationTest` (Testcontainers Cassandra + Redis) : mesure publiée dans le stream
+retrouvée via `GET /api/measurements/{sensorId}` et `/latest` (scénario 3), rejeu → une seule
+ligne (scénario 8), événement illisible en DLQ sans casser le flux, ancien après récent sans
+effet sur `latest`, et arrêt/reprise du consumer sans perte (scénarios 5 et 6). La recette
+plateforme (`scripts/e2e.sh`, scénarios 5, 6 et 7) le vérifie en conditions réelles Docker.

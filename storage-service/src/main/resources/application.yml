@@ -8,13 +8,16 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:change-me}
-    cassandra:
-      contact-points: ${CASSANDRA_HOST:localhost}:${CASSANDRA_PORT:9042}
-      local-datacenter: ${CASSANDRA_DC:datacenter1}   # obligatoire ; "datacenter1" pour l'image officielle
-      keyspace-name: smartenergy
-      schema-action: none                              # le schema vient de scripts/init-cassandra.cql
-      request:
-        timeout: 5s
+  # Spring Boot 3.5 : le prefixe Cassandra est spring.cassandra.* (et non plus
+  # spring.data.cassandra.*, ignore silencieusement -> repli sur localhost:9042).
+  cassandra:
+    contact-points: ${CASSANDRA_HOST:localhost}
+    port: ${CASSANDRA_PORT:9042}
+    local-datacenter: ${CASSANDRA_DC:datacenter1}   # obligatoire ; "datacenter1" pour l'image officielle
+    keyspace-name: smartenergy
+    schema-action: none                              # le schema vient de scripts/init-cassandra.cql
+    request:
+      timeout: 5s
 
 server:
   port: ${SERVER_PORT:8082}
