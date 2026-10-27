@@ -1,7 +1,9 @@
 # SmartEnergy Hub — MVP
 
 Plateforme distribuée de collecte, de stockage et d'analyse descriptive de mesures
-énergétiques. Voir le cahier des charges pour le périmètre complet.
+énergétiques. Voir le cahier des charges pour le périmètre complet — **MVP : `docs/cdc.md` ;
+extensions hors MVP : `docs/cdc.md` §18** (identifiants `EXT-9C`, `EXT-11`, `EXT-12`,
+`EXT-GW`, `EXT-B`, repris en §8.2 et §10 ci-dessous).
 
 **Chaîne** : Simulateur (Java) → Collector (Spring Boot) → Redis Streams →
 Storage (Spring Boot) → Cassandra ; Analytics/API (Spring Boot + Swagger) pour la
@@ -35,8 +37,8 @@ SmartEnergyHub/
 ├── storage-service/          # persistance Cassandra
 ├── sensor-service/           # référentiel des capteurs (MongoDB)
 ├── analytics-service/        # agrégats/anomalies + API Swagger
-├── gateway-service/          # EXTENSION non codée (exemples de config)
-├── ml/ + models/             # pipeline de prévision IA (extension, squelette)
+├── gateway-service/          # EXT-GW : extension non codée (fichiers .example)
+├── ml/ + models/             # EXT-9C : pipeline de prévision IA (extension, squelette)
 ├── scripts/                  # init-cassandra.cql, init-mongo.js, e2e.sh, perf.sh
 ├── infra/                    # scripts de cycle de vie (linux/, windows/)
 └── preuves/                  # tests/, captures/
@@ -151,18 +153,32 @@ ports, paramètres du simulateur. Les services lisent des variables
 d'environnement (ENF-02) ; les valeurs par défaut des `application.yml`
 permettent un lancement local sans Docker. Aucun secret réel n'est commité.
 
-## 8. Périmètre / hors périmètre
+## 8. Périmètre
 
-**Inclus (MVP)** : simulateur Java, Collector, Redis Streams, Storage, Cassandra,
-Sensor Service, MongoDB, Analytics/API, OpenAPI (springdoc), Docker Compose,
-tests unitaires.
+### 8.1 Inclus (MVP)
 
-**Extensions (scaffolding présent, non codées)** : API Gateway
-(`gateway-service/`, fichiers `.example`), prévision IA
-(`ml/`, `models/`, endpoint `/forecast` désactivé par défaut → 501).
+Simulateur Java, Collector, Redis Streams, Storage, Cassandra, Sensor Service, MongoDB,
+Analytics/API, OpenAPI (springdoc), Docker Compose, tests unitaires + tests d'intégration
+Testcontainers, recette de bout en bout (`make e2e`).
 
-**Exclu du MVP** : dashboard web, JWT/rôles, alertes externes, Kafka/Spark,
-Kubernetes, Grafana (les métriques Prometheus sont exposées via Actuator).
+### 8.2 Extensions (hors MVP) — par étape
+
+Squelettes et listes d'attente uniquement : **rien n'est codé**. Le détail complet (exigences,
+fichiers de départ, activation, critère de validation) vit dans **`docs/cdc.md` §18** ;
+l'avancement dans **`docs/TODO-MAP.md` partie B**.
+
+| ID | Étape du guide | Extension | État | Départs / documentation | Activation |
+|---|---|---|---|---|---|
+| `EXT-9C` | 9C (J8) | Prévision IA : baseline puis modèle ONNX | squelette livré, **non codé** — endpoint `/api/analytics/{id}/forecast` → 501 `FORECAST_DISABLED` | `analytics-service/.../forecast/ForecastService.java`, `ml/`, `models/` — `ml/README.md` | `ANALYTICS_FORECAST_ENABLED=true` + `smartenergy.analytics.forecast.model-path` |
+| `EXT-11` | 11 | Observabilité avancée : Prometheus + dashboard Grafana | aucun fichier (les endpoints `/actuator/prometheus` sont déjà exposés) | `docs/cdc.md` §18.2, `docs/security.md` | profil Compose de monitoring (à créer) |
+| `EXT-12` | 12 | Sécurité avancée : JWT, rôles `ADMIN`/`VIEWER`, clé d'API, HTTPS | aucun fichier (le volet MVP de l'étape 12 est livré) | `docs/cdc.md` §18.3, `docs/security.md` | Spring Security + variables d'environnement |
+| `EXT-GW` | 10 / 12 | API Gateway : routage, CORS, Swagger agrégé, rate-limit | scaffolding non codé (fichiers `.example`) | `gateway-service/README.md` | profil Compose `gateway` sur `:8080` |
+| `EXT-B` | bonus | Évolutivité : Kafka (D-03), Kubernetes, interface Web, alertes, OAuth2 | réflexion seulement | `docs/cdc.md` §18.5 | sur signaux (`energy_stream_lag`, besoins utilisateurs) |
+
+### 8.3 Hors périmètre (non prévu, même en extension)
+
+Multi-tenant, facturation, pilotage d'équipements (commande des capteurs), haute disponibilité
+multi-nœuds réelle de Cassandra (CDC §1.3).
 
 ## 9. Outils infra (cycle de vie)
 
@@ -189,6 +205,8 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 
 ## 10. État d'avancement
 
+### MVP
+
 - [x] Arborescence, configuration externe (`.env.example`), Docker Compose.
 - [x] Contrats partagés (`contracts/`) + tests unitaires.
 - [x] `platform-web` (erreurs RFC 9457, X-Request-Id) et `platform-stream`
@@ -213,6 +231,14 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
       scénarios 1–11 couverts) + recette de bout en bout automatisée
       (`make e2e` → `scripts/e2e.sh`) et mesures de performance
       (`scripts/perf.sh`).
-- [ ] Prévision 9C (extension).
+- [ ] Tests `sensor-service` restants (3 cas — `docs/TODO-MAP.md` partie A).
 
-Voir `docs/TODO-MAP.md` pour la liste à jour des fichiers restants.
+### Extensions (hors MVP) — rien de codé (CDC §18)
+
+- [ ] `EXT-9C` Prévision IA (étape 9C) — squelette : `ForecastService` (TODO), `ml/`, `models/` ; endpoint en 501.
+- [ ] `EXT-11` Observabilité avancée Prometheus/Grafana (étape 11) — métriques exposées, dashboard à créer.
+- [ ] `EXT-12` JWT + rôles, clé d'API, HTTPS (étape 12) — aucun fichier.
+- [ ] `EXT-GW` API Gateway (étapes 10/12) — scaffolding `gateway-service/*.example`.
+- [ ] `EXT-B` Kafka, Kubernetes, interface Web, alertes (bonus) — sur signaux.
+
+Voir `docs/TODO-MAP.md` (parties A et B) pour la liste à jour des fichiers restants.
