@@ -38,6 +38,7 @@ smartenergy:
   measurement:
     max-age: ${MEASUREMENT_MAX_AGE:PT24H}
     max-future: ${MEASUREMENT_MAX_FUTURE:PT5M}
+    max-body-bytes: ${MEASUREMENT_MAX_BODY_BYTES:10240}
   stream:
     name: ${STREAM_NAME:energy-measurements}
     max-len: ${STREAM_MAXLEN:500000}

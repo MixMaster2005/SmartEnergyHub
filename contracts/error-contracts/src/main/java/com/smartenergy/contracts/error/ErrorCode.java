@@ -41,4 +41,11 @@ public enum ErrorCode {
 
     /** Segment d'URL du champ "type" : VALIDATION_ERROR -> validation-error. */
     public String slug() { return name().toLowerCase(Locale.ROOT).replace('_', '-'); }
+
+    /**
+     * URI du champ "type" (RFC 9457) : base commune a toutes les erreurs REST, utilisee par le
+     * GlobalExceptionHandler de platform-web et par les filtres qui produisent un Problem
+     * Details hors du DispatcherServlet (ex. BodySizeLimitFilter du collector).
+     */
+    public String typeUri() { return "https://smartenergy.local/problems/" + slug(); }
 }

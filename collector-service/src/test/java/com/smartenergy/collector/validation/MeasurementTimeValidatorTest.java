@@ -22,7 +22,7 @@ class MeasurementTimeValidatorTest {
 
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
     private final MeasurementTimeValidator validator =
-            new MeasurementTimeValidator(new MeasurementProperties(MAX_AGE, MAX_FUTURE), clock);
+            new MeasurementTimeValidator(new MeasurementProperties(MAX_AGE, MAX_FUTURE, 10240), clock);
 
     @Test
     void valeur_nominale_est_acceptee() {
@@ -87,7 +87,7 @@ class MeasurementTimeValidatorTest {
     void proprietes_personnalisees_sont_prises_en_compte() {
         MeasurementTimeValidator strict =
                 new MeasurementTimeValidator(
-                        new MeasurementProperties(Duration.ofHours(2), MAX_FUTURE), clock);
+                        new MeasurementProperties(Duration.ofHours(2), MAX_FUTURE, 10240), clock);
 
         assertThatCode(() -> strict.check(NOW.minus(Duration.ofHours(2))))
                 .doesNotThrowAnyException();
