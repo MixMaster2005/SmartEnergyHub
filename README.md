@@ -37,7 +37,7 @@ SmartEnergyHub/
 ├── analytics-service/        # agrégats/anomalies + API Swagger
 ├── gateway-service/          # EXTENSION non codée (exemples de config)
 ├── ml/ + models/             # pipeline de prévision IA (extension, squelette)
-├── scripts/                  # init-cassandra.cql, init-mongo.js, e2e.sh
+├── scripts/                  # init-cassandra.cql, init-mongo.js, e2e.sh, perf.sh
 ├── infra/                    # scripts de cycle de vie (linux/, windows/)
 └── preuves/                  # tests/, captures/
 ```
@@ -208,6 +208,11 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
       forecast déclaré en 501, OpenAPI).
 - [x] Étape 12 (sécurité : limite 10 Ko sur `POST /api/measurements` → 413
       `application/problem+json`, `MEASUREMENT_MAX_BODY_BYTES`).
-- [ ] Prévision 9C, tests d'intégration.
+- [x] Tests d'intégration des trois services (`CollectorIntegrationTest`,
+      `StorageIntegrationTest`, `AnalyticsIntegrationTest` — Testcontainers,
+      scénarios 1–11 couverts) + recette de bout en bout automatisée
+      (`make e2e` → `scripts/e2e.sh`) et mesures de performance
+      (`scripts/perf.sh`).
+- [ ] Prévision 9C (extension).
 
 Voir `docs/TODO-MAP.md` pour la liste à jour des fichiers restants.

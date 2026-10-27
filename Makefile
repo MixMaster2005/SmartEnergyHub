@@ -1,4 +1,4 @@
-.PHONY: help build up down reset logs ps sim e2e todo redis-cli mongosh cqlsh
+.PHONY: help build up down reset logs ps sim e2e perf todo redis-cli mongosh cqlsh
 
 help: ## Liste des commandes
 	@grep -E '^[a-z-]+:.*##' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -27,6 +27,9 @@ sim: ## Lance le simulateur (5 capteurs, 2 minutes par defaut)
 
 e2e: ## Scenarios de recette HTTP (scripts/e2e.sh)
 	./scripts/e2e.sh
+
+perf: ## Mesures de performance (scripts/perf.sh, plateforme up)
+	./scripts/perf.sh
 
 todo: ## Liste les classes restant a implementer
 	@grep -rn --include=*.java "^// TODO(" . | sed 's/^\.\///'

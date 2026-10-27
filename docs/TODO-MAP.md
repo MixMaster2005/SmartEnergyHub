@@ -16,10 +16,9 @@ corps de l'étape 12, scripts de base de données, Docker) ne figurent pas ici.
 
 ## Tests d'intégration et unitaires  _(plan : au fil de l'eau)_
 
-| Fichier | À faire |
-|---|---|
-| `collector-service/src/test/java/com/smartenergy/collector/CollectorIntegrationTest.java` | Test d'integration du collector (Testcontainers Redis) |
-| `storage-service/src/test/java/com/smartenergy/storage/StorageIntegrationTest.java` | Tests d'integration du storage (Testcontainers Redis + Cassandra) |
-| `analytics-service/src/test/java/com/smartenergy/analytics/AnalyticsIntegrationTest.java` | Tests d'integration analytics (Testcontainers Redis + MongoDB) |
+Tests d'intégration **livrés** (Testcontainers, exécutés à chaque `mvn test`) :
+`CollectorIntegrationTest` (6 tests, scénarios 1, 2, 8, 9),
+`StorageIntegrationTest` (5 tests, scénarios 3, 5, 6, 8),
+`AnalyticsIntegrationTest` (4 tests, scénarios 4, 8, 11, avec faux sensor-service HTTP).
 
-**Total : 4 fichiers à compléter.**
+**Total : 1 fichier à compléter.**
