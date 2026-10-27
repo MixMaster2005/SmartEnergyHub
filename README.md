@@ -206,6 +206,8 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 - [x] Étape 8 (API de consultation : historique paginé + latest storage,
       summary/daily-summary/anomalies/exceedances analytics, alias D-17,
       forecast déclaré en 501, OpenAPI).
-- [ ] Étape 12 (limite 10 Ko), prévision 9C, tests d'intégration.
+- [x] Étape 12 (sécurité : limite 10 Ko sur `POST /api/measurements` → 413
+      `application/problem+json`, `MEASUREMENT_MAX_BODY_BYTES`).
+- [ ] Prévision 9C, tests d'intégration.
 
 Voir `docs/TODO-MAP.md` pour la liste à jour des fichiers restants.

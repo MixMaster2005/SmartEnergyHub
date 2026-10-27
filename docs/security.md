@@ -27,10 +27,18 @@
 - MongoDB : un utilisateur par base, droits limités (`scripts/init-mongo.js`).
 - Redis : `requirepass`.
 - Validation stricte des entrées (contrats partagés), pas de coercition de types, messages d'erreur sans détail interne.
+- Erreurs REST uniformes en `application/problem+json` avec `code` et `traceId`
+  (`GlobalExceptionHandler`, enregistré en `@ControllerAdvice` — sans cette annotation,
+  Spring ignorait le handler et chaque service retombait sur l'erreur JSON par défaut).
 - Conteneurs applicatifs : utilisateur non root.
-- Limitation de taille du corps HTTP (10 Ko → 413) : **prévue au CDC (étape 12), non
-  implémentée** (`BodySizeLimitFilter` = squelette dans `collector-service`) — à ne pas
-  confondre avec les tableaux de contrats qui affichent déjà le 413.
+- **Limitation de taille du corps HTTP (étape 12, livrée)** : `POST /api/measurements` borné à
+  **10 Ko** par `BodySizeLimitFilter` → 413 `PAYLOAD_TOO_LARGE` en `application/problem+json`.
+  Deux cas couverts : `Content-Length` annoncé (le filtre écrit la réponse lui-même, le filtre
+  s'exécutant avant le `DispatcherServlet`) et corps **chunked** sans `Content-Length` (flux
+  compteur qui lève `ApiException`, résolue par le handler global). Limite configurable :
+  `MEASUREMENT_MAX_BODY_BYTES` (défaut `10240`). Preuves : `BodySizeLimitFilterTest` (5 cas) et le
+  contrôle « corps > 10 Ko » de `make e2e` (413 + `XLEN` inchangé) — c'est ce filtre qui produit
+  aussi le 413 annoncé par les tableaux de contrats.
 
 ## Extensions possibles
 Spring Security + JWT (rôles ADMIN / VIEWER), authentification Cassandra, TLS (reverse proxy), limitation de débit, OAuth2.
