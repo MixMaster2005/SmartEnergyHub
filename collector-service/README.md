@@ -36,7 +36,8 @@ soit annoncé (réponse écrite par le filtre) ou le corps chunked (flux compteu
 juste après `RequestIdFilter` (étape 12), test unitaire `BodySizeLimitFilterTest` (5 cas).
 
 ## À faire (dans l'ordre)
-1. `CollectorIntegrationTest` — scénarios 1, 2, 8, 9 — *fichier squelette, tout est commenté, aucun test exécuté à ce jour*
+1. _(rien : `CollectorIntegrationTest` est livré — scénarios 1, 2, 8 et 9, Redis en
+   Testcontainers, stream confronté au schéma `measurement-event.schema.json`.)_
 
 ## Pièges
 - Ne **jamais** réécrire la sérialisation : `MeasurementEventCodec.toFields` est le contrat.
@@ -54,4 +55,6 @@ juste après `RequestIdFilter` (étape 12), test unitaire `BodySizeLimitFilterTe
 
 ## Critère de validation (étape 3)
 Une requête valide crée un évènement dans Redis ; une requête invalide n'en crée aucun.
-*(Pas encore de test automatisé qui le prouve : `CollectorIntegrationTest` reste à implémenter.)*
+*(Prouvé par `CollectorIntegrationTest` : 202 + `X-Event-Id` + `XLEN` +1 pour une mesure
+valide, 400 `application/problem+json` sans aucune publication pour l'invalide,
+503 + `Retry-After: 5` quand Redis est arrêté.)*
