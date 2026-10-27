@@ -30,6 +30,10 @@
 - Erreurs REST uniformes en `application/problem+json` avec `code` et `traceId`
   (`GlobalExceptionHandler`, enregistré en `@ControllerAdvice` — sans cette annotation,
   Spring ignorait le handler et chaque service retombait sur l'erreur JSON par défaut).
+  Les exceptions standard de Spring MVC (404 route inconnue, 405, 415) passent par la classe
+  de base avec un corps `null` : l'enrichissement se fait donc **après**
+  `super.handleExceptionInternal` (sinon `type` restait `about:blank` et `code`/`traceId`
+  absents) — preuve : `GlobalExceptionHandlerTest`.
 - Conteneurs applicatifs : utilisateur non root.
 - **Limitation de taille du corps HTTP (étape 12, livrée)** : `POST /api/measurements` borné à
   **10 Ko** par `BodySizeLimitFilter` → 413 `PAYLOAD_TOO_LARGE` en `application/problem+json`.

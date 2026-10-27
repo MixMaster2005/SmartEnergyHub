@@ -10,7 +10,7 @@ Aucune base propre ; ne vérifie pas l'existence du capteur (disponibilité avan
 |---|---|
 | 202 | publiée dans le stream ; en-tête `X-Event-Id` (**UUID v5 déterministe** de `sensorId|timestamp`, D-07) ; corps vide |
 | 400 | JSON mal formé, règle violée, trop ancienne (> 24 h), dans le futur (> 5 min) — Problem Details (`code`, `traceId`) |
-| 415 | type non JSON — renvoyé par le handler global (platform-web) mais actuellement **avec un corps vide** (écart connu à corriger) |
+| 415 | type non JSON — Problem Details complet (`code` `UNSUPPORTED_MEDIA_TYPE`, `traceId`) renvoyé par le handler global (platform-web), enrichi après la classe de base |
 | 413 | corps > 10 Ko (`BodySizeLimitFilter`, étape 12) — Problem Details `PAYLOAD_TOO_LARGE`, que le `Content-Length` soit annoncé ou le corps envoyé en chunked |
 | 503 | Redis indisponible — `Retry-After: 5`. **Jamais de 202 sans `XADD` réussi** |
 
@@ -47,7 +47,10 @@ juste après `RequestIdFilter` (étape 12), test unitaire `BodySizeLimitFilterTe
   Le corps chunked, lui, lève une `ApiException` résolue par le handler global (mêmes champs).
 - Enregistrer le filtre juste **après** `RequestIdFilter` (`HIGHEST_PRECEDENCE + 1`) : sinon la
   réponse 413 sort sans `traceId` ni `X-Request-Id`.
-- Le 415 traverse `GlobalExceptionHandler` (platform-web) : prévoir un corps Problem Details complet (cf. « Contrat »).
+- Le 415 (comme le 404 et le 405) traverse `GlobalExceptionHandler` (platform-web) : le corps
+  est construit par `ResponseEntityExceptionHandler` **après** `super.handleExceptionInternal`
+  (les sous-methodes passent `body = null`), l'enrichissement `code`/`traceId` se fait donc
+  après l'appel — un test sur `body` avant ne le verrait jamais.
 
 ## Critère de validation (étape 3)
 Une requête valide crée un évènement dans Redis ; une requête invalide n'en crée aucun.

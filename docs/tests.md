@@ -8,7 +8,7 @@ Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 à 3 + con
 > preuves `preuves/tests/resultats-modele.md` utilise les labels **T01–T14** du guide.
 > Les deux référent le même recette.
 
-## Tests unitaires présents dans le dépôt (69 tests actifs)
+## Tests unitaires présents dans le dépôt (74 tests actifs)
 
 | Classe | Service | Cas |
 |---|---|---|
@@ -25,6 +25,7 @@ Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 à 3 + con
 | `HistoryCursorTest` | storage | 8 (aller-retour du curseur base64url, jeton non URL-safe, collisions, jetons corrompus → 400 `INVALID_PARAMETER`, étape 8) |
 | `AnalyticsRulesTest` | analytics | 9 (énergie rectangle tronquée, seuil strict, Welford, score z, limites documentées) |
 | `StreamLagMetricsTest` | platform | 4 (noms de métriques + tag `group`, refresh pending/lag, tolérance d'une panne Redis, lag inconnu/groupe absent = 0, D-24) |
+| `GlobalExceptionHandlerTest` | platform | 5 (404 / 405 / 415 enrichis `code` + `traceId` + URI `type` + titre FR, corps déjà signé non écrasé, chemin `ApiException` inchangé) |
 
 Squelettes **entièrement commentés** (aucun test exécuté à ce jour) :
 `CollectorIntegrationTest`, `StorageIntegrationTest`, `AnalyticsIntegrationTest`.
