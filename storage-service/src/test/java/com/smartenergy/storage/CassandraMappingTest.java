@@ -12,10 +12,8 @@ import com.smartenergy.contracts.measurement.SensorState;
 import com.smartenergy.storage.entity.LatestMeasurementEntity;
 import com.smartenergy.storage.entity.MeasurementByDayEntity;
 import com.smartenergy.storage.entity.MeasurementKey;
+import com.smartenergy.storage.stream.StorageStreamConsumer;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -34,8 +32,8 @@ import org.springframework.data.cassandra.core.convert.MappingCassandraConverter
 import org.springframework.data.cassandra.core.mapping.CassandraPersistentEntity;
 import org.springframework.data.cassandra.core.query.Criteria;
 import org.springframework.data.cassandra.core.query.Query;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.CassandraContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -65,10 +63,7 @@ class CassandraMappingTest {
     private static final LocalDate DAY = LocalDate.of(2026, 9, 30);
 
     @Container
-    static final CassandraContainer<?> CASSANDRA = new CassandraContainer<>("cassandra:5")
-            // Le port 9042 s'ouvre avant que le native transport soit vraiment pret :
-            // attendre le message de demarrage, au-dela du simple check de port.
-            .waitingFor(Wait.forLogMessage(".*Starting listening for CQL clients.*", 1));
+    static final CassandraContainer<?> CASSANDRA = CassandraTestSupport.container();
 
     /** Session et template pointes sur le conteneur demarre par Testcontainers. */
     @TestConfiguration
@@ -92,41 +87,7 @@ class CassandraMappingTest {
 
     @BeforeAll
     static void initSchema() throws Exception {
-        Path script = Path.of("..", "scripts", "init-cassandra.cql");
-        String cql = Files.readString(script);
-
-        // Script idempotent (IF NOT EXISTS) : on retente jusqu'a ce que le serveur reponde.
-        Instant deadline = Instant.now().plus(Duration.ofMinutes(3));
-        while (true) {
-            try (CqlSession session = CqlSession.builder()
-                    .addContactPoint(new InetSocketAddress(
-                            CASSANDRA.getHost(), CASSANDRA.getFirstMappedPort()))
-                    .withLocalDatacenter("datacenter1")
-                    .build()) {
-                for (String statement : cql.split(";")) {
-                    String stripped = stripComments(statement).trim();
-                    if (!stripped.isEmpty()) {
-                        session.execute(stripped);
-                    }
-                }
-                return;
-            } catch (Exception e) {
-                if (Instant.now().isAfter(deadline)) {
-                    throw new IllegalStateException("Cassandra non pret apres 3 min", e);
-                }
-                Thread.sleep(2_000);
-            }
-        }
-    }
-
-    private static String stripComments(String cql) {
-        StringBuilder out = new StringBuilder();
-        for (String line : cql.split("\n")) {
-            if (!line.trim().startsWith("--")) {
-                out.append(line).append('\n');
-            }
-        }
-        return out.toString();
+        CassandraTestSupport.applySchema(CASSANDRA);
     }
 
     private static EnergyMeasurement measurement(String sensorId, Instant timestamp, Double temperature) {
@@ -140,6 +101,10 @@ class CassandraMappingTest {
 
     @Autowired
     CqlSession session;
+
+    /** Le mapping seul ne consomme pas Redis : pas de consumer reel dans ce test. */
+    @MockitoBean
+    StorageStreamConsumer storageConsumer;
 
     @Test
     void measurementByDay_roundTrip_conserveTypesEtValeurs() {
