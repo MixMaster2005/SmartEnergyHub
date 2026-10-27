@@ -16,6 +16,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -24,7 +25,12 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * "code" (enum ErrorCode), "traceId" et, pour les 400 de validation, "errors[]".
  * Les exceptions standard de Spring MVC (404, 405, 415, parametres...) passent par la classe de base
  * et sont enrichies dans {@link #handleExceptionInternal}.
+ *
+ * <p>{@code @ControllerAdvice} est INDISPENSABLE : sans lui, Spring MVC ignore les
+ * {@code @ExceptionHandler} de ce bean (enregistre pourtant par la platform-web
+ * auto-configuration) et chaque service retombe sur l'erreur JSON par defaut de Spring Boot.
  */
+@ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -74,7 +80,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatusCode statusCode, WebRequest request) {
         if (body instanceof ProblemDetail pd && (pd.getProperties() == null || !pd.getProperties().containsKey("code"))) {
             ErrorCode code = defaultCodeFor(statusCode.value());
-            pd.setType(URI.create(typeUri(code)));
+            pd.setType(URI.create(code.typeUri()));
             pd.setProperty("code", code.name());
             pd.setProperty("traceId", RequestIdFilter.currentRequestId());
         }
@@ -88,16 +94,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static ProblemDetail problem(ErrorCode code, String detail, List<FieldViolation> violations) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(code.status()), detail);
-        pd.setType(URI.create(typeUri(code)));
+        pd.setType(URI.create(code.typeUri()));
         pd.setTitle(code.title());
         pd.setProperty("code", code.name());
         pd.setProperty("traceId", RequestIdFilter.currentRequestId());
         if (violations != null && !violations.isEmpty()) pd.setProperty("errors", violations);
         return pd;
-    }
-
-    private static String typeUri(ErrorCode code) {
-        return "https://smartenergy.local/problems/" + code.slug();
     }
 
     private static ErrorCode defaultCodeFor(int status) {
