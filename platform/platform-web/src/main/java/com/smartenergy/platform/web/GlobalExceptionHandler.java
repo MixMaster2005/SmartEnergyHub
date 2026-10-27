@@ -75,19 +75,40 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 headers, HttpStatus.BAD_REQUEST, request);
     }
 
+    /**
+     * Enrichit le Problem Details avec "code" et "traceId", et aligne "type" (URI RFC 9457 de
+     * l'ErrorCode du statut au lieu de about:blank) et "title" (titre francais de l'ErrorCode
+     * au lieu de la raison phrase anglaise de Spring) sur le reste des erreurs de la plateforme.
+     *
+     * <p>L'ordre compte : les sous-methodes de la classe de base (404 NoResourceFoundException,
+     * 405, 415, timeout asynchrone...) passent {@code body = null} et c'est
+     * {@code super.handleExceptionInternal} qui construit ensuite le ProblemDetail (via
+     * {@code ErrorResponse.updateAndGetBody}). Un test sur {@code body} AVANT l'appel ne voit
+     * donc jamais ces corps ; on enrichit ce que la methode de base a produit.
+     */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
             HttpStatusCode statusCode, WebRequest request) {
-        if (body instanceof ProblemDetail pd && (pd.getProperties() == null || !pd.getProperties().containsKey("code"))) {
-            ErrorCode code = defaultCodeFor(statusCode.value());
-            pd.setType(URI.create(code.typeUri()));
-            pd.setProperty("code", code.name());
-            pd.setProperty("traceId", RequestIdFilter.currentRequestId());
-        }
         HttpHeaders h = new HttpHeaders();
         if (headers != null) h.putAll(headers);
         h.setContentType(MediaType.APPLICATION_PROBLEM_JSON);
-        return super.handleExceptionInternal(ex, body, h, statusCode, request);
+        ResponseEntity<Object> response = super.handleExceptionInternal(ex, body, h, statusCode, request);
+        if (response != null && response.getBody() instanceof ProblemDetail pd
+                && (pd.getProperties() == null || !pd.getProperties().containsKey("code"))) {
+            ErrorCode code = defaultCodeFor(statusCode.value());
+            if (pd.getType() == null || URI.create("about:blank").equals(pd.getType())) {
+                pd.setType(URI.create(code.typeUri()));
+            }
+            // Titre par defaut de Spring = raison phrase anglaise ("Not Found") : on le remplace
+            // par celui de l'ErrorCode pour rester identique aux erreurs produites par problem().
+            String raisonPhrase = HttpStatus.valueOf(statusCode.value()).getReasonPhrase();
+            if (pd.getTitle() == null || pd.getTitle().isBlank() || pd.getTitle().equals(raisonPhrase)) {
+                pd.setTitle(code.title());
+            }
+            pd.setProperty("code", code.name());
+            pd.setProperty("traceId", RequestIdFilter.currentRequestId());
+        }
+        return response;
     }
 
     // ------------------------------------------------------------------ utilitaires
