@@ -19,8 +19,8 @@
 |---|---|---|
 | Ports Redis / MongoDB / Cassandra | publiés **uniquement** par `docker-compose.override.yml` (développement) | non exposés en production |
 | Actuator | `health`, `info`, `metrics`, `prometheus` | à restreindre derrière la gateway en production |
-| `POST /api/measurements` | public | à protéger par clé d'API ou JWT (extension) |
-| `POST/PUT/DELETE /api/sensors` | public | réservé au rôle ADMIN (extension) |
+| `POST /api/measurements` | public | à protéger par clé d'API ou JWT (extension `EXT-12`, CDC §18.3) |
+| `POST/PUT/DELETE /api/sensors` | public | réservé au rôle ADMIN (extension `EXT-12`, CDC §18.3) |
 
 ## Mécanismes en place
 - Mots de passe par variables d'environnement ; profils `docker` / défaut.
@@ -44,5 +44,13 @@
   contrôle « corps > 10 Ko » de `make e2e` (413 + `XLEN` inchangé) — c'est ce filtre qui produit
   aussi le 413 annoncé par les tableaux de contrats.
 
-## Extensions possibles
-Spring Security + JWT (rôles ADMIN / VIEWER), authentification Cassandra, TLS (reverse proxy), limitation de débit, OAuth2.
+## Extensions possibles — `EXT-12` (détail CDC §18.3)
+
+Spring Security + JWT (rôles `ADMIN` / `VIEWER`), clé d'API pour `POST /api/measurements`,
+authentification applicative, TLS (reverse proxy), limitation de débit (souvent couplée à la
+gateway `EXT-GW`), OAuth2.
+
+**État** : aucun fichier, rien n'est codé. **Critère** : écriture des capteurs et collecte refusées
+sans jeton / clé (401 ou 403 en `application/problem+json`), `make e2e` adapté reste vert.
+**Renvois** : `docs/cdc.md` §18.3 · `docs/TODO-MAP.md` partie B · README racine §8.2 ·
+README `collector-service` et `sensor-service`.

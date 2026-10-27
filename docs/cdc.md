@@ -3,7 +3,7 @@
 <aside>
 📌
 
-**Statut** : brouillon v0.1 — 16/10/2026. **Source** : guide « Plateforme Big Data & IA pour la supervision énergétique distribuée » (Master 1 MSI, F. Razafindraibe).
+**Statut** : v0.2 — 28/10/2026 — **MVP validé** (étapes 1 à 8 et 12 : 89 tests, recette `make e2e` 64/64, voir `docs/tests.md`) ; **extensions non démarrées** (section 18). **Source** : guide « Plateforme Big Data & IA pour la supervision énergétique distribuée » (Master 1 MSI, F. Razafindraibe).
 
 **Objet** : décrire quoi construire (exigences), comment les services se parlent (contrats), où vivent les données (propriété par service) et pourquoi chaque choix a été fait (décisions / veille).
 
@@ -22,6 +22,7 @@
 5. **Contrat d'abord** : JSON Schema de l'événement et OpenAPI par service dans un dossier `contracts/` versionné, vérifiés par les tests.
 6. **Fiabilité de bout en bout** : ACK Redis uniquement après persistance, reprise des messages en attente, Dead Letter Queue, Redis en AOF avec volume, healthchecks Docker.
 7. **Écart assumé avec le guide** (à valider avec l'enseignant) : les agrégats MongoDB sont produits par `analytics-service` et non par `storage-service` (voir section 15).
+8. **Extensions regroupées en section 18** : chaque extension hors MVP possède un identifiant `EXT-*`, calé sur l'étape du guide correspondante, avec son état, ses fichiers de départ, son activation et son critère de validation. Ces identifiants sont repris à l'identique dans `docs/TODO-MAP.md`, le README racine et les README de services.
 
 ---
 
@@ -40,7 +41,7 @@ Des bâtiments contiennent des compteurs/capteurs qui émettent périodiquement 
 ## 1.3 Périmètre
 
 - **MVP** : simulateur, collector, redis stream, storage, cassandra, mongo, API REST de consultation, moyenne/max/min/énergie + dépassement de seuil, Docker Compose, Swagger, tests de la chaîne complète.
-- **EXT** : prévision (régression/LSTM), API Gateway, JWT et rôles, Prometheus/Grafana, alertes automatiques, Kafka, Kubernetes, interface Web.
+- **EXT** : prévision (régression/LSTM), API Gateway, JWT et rôles, Prometheus/Grafana, alertes automatiques, Kafka, Kubernetes, interface Web — **détaillées par étape en section 18** (identifiants `EXT-9C`, `EXT-11`, `EXT-12`, `EXT-GW`, `EXT-B`).
 - **Hors périmètre** : multi-tenant, facturation, pilotage d'équipements (commande des capteurs), haute disponibilité multi-nœuds réelle de Cassandra.
 
 ## 1.4 Acteurs
@@ -66,14 +67,14 @@ Des bâtiments contiennent des compteurs/capteurs qui émettent périodiquement 
 | EF-08 | Calculer sur une période : nombre de mesures, moyenne, min, max, énergie estimée (kWh), dépassements de seuil, anomalies | analytics-service | MVP | 9 (A) |
 | EF-09 | Fournir le résumé quotidien d'un capteur (agrégat MongoDB) | analytics-service | MVP | 6, 9 |
 | EF-10 | Détecter un dépassement de seuil (puissance supérieure à `maxPowerKw`) et lister les capteurs qui dépassent un seuil donné | analytics-service | MVP | 9 (B) |
-| EF-11 | Détecter une anomalie statistique par score z | analytics-service | MVP (simple) / EXT | 9 (B) |
+| EF-11 | Détecter une anomalie statistique par score z | analytics-service | MVP (simple) / EXT (§18.5) | 9 (B) |
 | EF-12 | Lister les anomalies détectées (filtre période et type) | analytics-service | MVP | 8, 9 |
-| EF-13 | Prévoir la consommation des prochaines heures (baseline puis modèle IA) | analytics-service | EXT | 9 (C), 18 |
-| EF-14 | Exposer santé et métriques (Actuator, Micrometer), dashboard Grafana en extension | tous | MVP / EXT | 11 |
+| EF-13 | Prévoir la consommation des prochaines heures (baseline puis modèle IA) | analytics-service | EXT (§18.1) | 9 (C), 18 |
+| EF-14 | Exposer santé et métriques (Actuator, Micrometer), dashboard Grafana en extension | tous | MVP / EXT (§18.2) | 11 |
 | EF-15 | Ne perdre aucune mesure si un consommateur est arrêté puis relancé | storage, analytics, Redis | MVP | 4, 22 |
 | EF-16 | Lancer toute la plateforme avec `docker compose up -d` et un README court | infra | MVP | 10 |
 | EF-17 | Documenter toutes les routes en OpenAPI/Swagger avec exemples | tous les services REST | MVP | 8 |
-| EF-18 | Sécurité minimale : secrets hors Git, variables d'environnement, profils, validation des entrées ; JWT/rôles en extension | tous | MVP / EXT | 12 |
+| EF-18 | Sécurité minimale : secrets hors Git, variables d'environnement, profils, validation des entrées ; JWT/rôles en extension | tous | MVP / EXT (§18.3) | 12 |
 
 ---
 
@@ -278,7 +279,7 @@ Corps d'un capteur : `sensorId`, `name`, `building`, `floor`, `maxPowerKw` (sup�
 | `GET /api/sensors/{id}/daily-summary` (alias `/api/analytics/{sensorId}/daily-summary`) | `date` (défaut : jour UTC courant) | 200 agrégat quotidien ; 404 |
 | `GET /api/analytics/{sensorId}/anomalies` | `from`, `to`, `type` (`THRESHOLD`, `ZSCORE`, `FORECAST_RESIDUAL`), `page`, `size` | 200 liste paginée, plus récentes d'abord |
 | `GET /api/analytics/exceedances` | `threshold` (kW, obligatoire), `from`, `to` optionnels | 200 `[ { sensorId, lastPowerKw, maxPowerKw, ... } ]` ; sans `from`/`to` : état courant ; avec : agrégats quotidiens de la période |
-| `GET /api/analytics/{sensorId}/forecast` (EXT) | `horizonHours` (1 à 24, défaut 6) | 200 `{ model, generatedAt, points[ {hour, powerKw} ], metrics }` ; 501 `FORECAST_DISABLED` si module inactif |
+| `GET /api/analytics/{sensorId}/forecast` (EXT-9C, §18.1) | `horizonHours` (1 à 24, défaut 6) | 200 `{ model, generatedAt, points[ {hour, powerKw} ], metrics }` ; 501 `FORECAST_DISABLED` si module inactif |
 
 ## 5.5 Contrats internes service-à-service
 
@@ -372,7 +373,7 @@ Collection `sensors` — index unique sur `sensorId`, index sur `building`.
 | `hourly_aggregates` | `_id` = `sensorId|yyyy-MM-ddTHH` ; `count`, `sumPowerKw`, `minPowerKw`, `maxPowerKw`, `energyKwh`, `thresholdExceededCount`, `anomalyCount`, `updatedAt`. La moyenne = `sumPowerKw / count` calculée à la lecture | `(sensorId, hour)` |
 | `daily_aggregates` | Mêmes champs, `_id` = `sensorId|yyyy-MM-dd`, champ `date` | `(sensorId, date)` unique ; `maxPowerKw` (exceedances sur période) |
 | `anomalies` | `anomalyId`, `sensorId`, `timestamp`, `eventId`, `type`, `severity`, `powerKw`, `thresholdKw`, `thresholdSource`, `zScore`, `detectedAt` | `(eventId, type)` unique (idempotence) ; `(sensorId, timestamp)` ; TTL optionnel 90 jours |
-| `forecasts` (EXT) | `sensorId`, `generatedAt`, `model`, `horizonHours`, `points[]`, `metrics` | `(sensorId, generatedAt)` |
+| `forecasts` (EXT-9C, §18.1) | `sensorId`, `generatedAt`, `model`, `horizonHours`, `points[]`, `metrics` | `(sensorId, generatedAt)` |
 
 Exemple d'agrégat quotidien :
 
@@ -409,7 +410,7 @@ Convention : `{usage}:{service}:{identifiant}`.
 - **Score z** (algorithme de Welford, `n`, `mean`, `m2` dans `sensor_state`) : `z = (P − µ) / σ` avec `σ = racine(m2 / (n − 1))`. Évalué seulement quand `n ≥ 30` ; anomalie `ZSCORE` si `|z| > 3` (paramètres). Les mesures déjà anormales **ne mettent pas à jour** les statistiques, pour ne pas fausser µ et σ. *Limite* : un profil sinusoïdal gonfle σ ; une variante par tranche horaire est une amélioration.
 - **Sévérité** : `THRESHOLD` = `HIGH`, `ZSCORE` = `MEDIUM` (configurable).
 - **Idempotence analytics** : vérifier `dedup:analytics:{eventId}` avant traitement, le marquer **après** écriture Mongo réussie. Une panne dans cette fenêtre peut compter une mesure deux fois (biais négligeable, documenté). L'insertion d'anomalie est idempotente grâce à l'index unique `(eventId, type)`.
-- **Prévision (EXT)** : série horaire des moyennes de `hourly_aggregates` ; fenêtre d'entrée 24 h, horizon 1 à 24 h ; valeurs manquantes par interpolation linéaire ; normalisation min-max calculée sur l'entraînement uniquement ; découpage chronologique (jamais aléatoire) entraînement / validation / test ; métriques MAE et RMSE comparées à la baseline.
+- **Prévision (EXT-9C, §18.1)** : série horaire des moyennes de `hourly_aggregates` ; fenêtre d'entrée 24 h, horizon 1 à 24 h ; valeurs manquantes par interpolation linéaire ; normalisation min-max calculée sur l'entraînement uniquement ; découpage chronologique (jamais aléatoire) entraînement / validation / test ; métriques MAE et RMSE comparées à la baseline.
 
 ---
 
@@ -450,11 +451,11 @@ Convention : `{usage}:{service}:{identifiant}`.
 
 - **Entrées** : stream via `analytics-group` ; REST vers sensor-service. **Données** : `analytics_db`.
 - **Comportement par lot** : dédupliquer → récupérer les seuils (cache) → évaluer les règles de 6.5 → mettre à jour `sensor_state`, `hourly_aggregates`, `daily_aggregates` → insérer les anomalies → `XACK`.
-- **Prévision (EXT)** : endpoint actif seulement si `analytics.forecast.enabled=true` ; baseline toujours disponible ; modèle ONNX chargé depuis `models/`.
+- **Prévision (EXT-9C, §18.1)** : endpoint actif seulement si `analytics.forecast.enabled=true` ; baseline toujours disponible ; modèle ONNX chargé depuis `models/`.
 - **Métriques** : `energy_anomalies_detected_total{type}`, `energy_forecast_latency_seconds`.
 - **Tests clés** : calculs d'énergie, de moyenne et de z-score en test unitaire sur jeu connu ; pic ×3 injecté → anomalie `THRESHOLD` visible via l'API ; nombre de mesures de `summary` = nombre dans Cassandra pour la même période.
 
-## 7.6 gateway-service (EXT)
+## 7.6 gateway-service (EXT-GW, §18.4)
 
 - Spring Cloud Gateway sur `:8080`. Routes : `POST /api/measurements` → collector ; `GET /api/measurements/**` → storage ; `/api/sensors/*/daily-summary` → analytics (règle placée **avant**) ; `/api/sensors/**` → sensor-service ; `/api/analytics/**` → analytics.
 - JWT (rôles `ADMIN` écriture capteurs, `VIEWER` lecture), CORS, Swagger agrégé, limitation de débit.
@@ -479,7 +480,7 @@ Convention : `{usage}:{service}:{identifiant}`.
 
 # 9. Observabilité
 
-- **Actuator** sur tous les services : `health` (groupes `liveness` et `readiness`, indicateurs Redis / Mongo / Cassandra selon le service), `info`, `metrics`, `prometheus` (EXT).
+- **Actuator** sur tous les services : `health` (groupes `liveness` et `readiness`, indicateurs Redis / Mongo / Cassandra selon le service), `info`, `metrics`, `prometheus` (endpoint livré dès le MVP ; le stack Prometheus + dashboard Grafana relève de l'extension **EXT-11**, §18.2).
 - **Route `GET /api/health`** : 200 `{ status, service, time }` (étape 0 du guide).
 - **Métriques minimales** (au moins 3 doivent être montrées en démo) :
 
@@ -489,7 +490,7 @@ Convention : `{usage}:{service}:{identifiant}`.
 | `energy_stream_pending`, `energy_stream_lag` (par groupe) | storage, analytics |
 | `energy_persist_duration_seconds`, `energy_persist_errors_total` | storage |
 | `energy_anomalies_detected_total{type}` | analytics |
-| `energy_forecast_latency_seconds` | analytics (EXT) |
+| `energy_forecast_latency_seconds` | analytics (EXT-9C, §18.1) |
 - **Logs** : JSON structuré, champs `traceId`, `sensorId`, `eventId`, `service`.
 - **Expérience de charge** : monter progressivement le débit du simulateur et commenter latence, retard du stream et erreurs.
 
@@ -505,7 +506,7 @@ Convention : `{usage}:{service}:{identifiant}`.
 - Validation stricte des entrées (section 5.2), limite de taille du corps, messages d'erreur sans détail interne.
 - Note de sécurité en livrable : secrets, accès exposés, endpoints sensibles (écriture capteurs, collecte).
 
-**EXT** : Spring Security + JWT, rôles `ADMIN` / `VIEWER`, clé d'API pour le collector, HTTPS via reverse proxy, OAuth2.
+**EXT** : Spring Security + JWT, rôles `ADMIN` / `VIEWER`, clé d'API pour le collector, HTTPS via reverse proxy, OAuth2 — extension **EXT-12**, détaillée en §18.3.
 
 ---
 
@@ -557,8 +558,8 @@ cassandra-init:
 
 - **Unitaires** : validation DTO, calcul d'énergie, seuil, score z, conversions DTO ↔ entités.
 - **Intégration (Testcontainers)** : API → Redis ; Redis → storage ; storage → Cassandra ; analytics → Mongo ; lecture via API.
-- **Contrat** : l'événement publié par le collector est validé contre `contracts/schemas/energy-measurement-event.schema.json` ; chaque route documentée en OpenAPI (springdoc) doit correspondre aux contrats (les fichiers `contracts/*.openapi.yaml` sont **prévus mais non livrés** — seuls des JSON Schemas existent à ce jour).
-- **Bout en bout** : script `scripts/e2e.sh` rejouant les scénarios ci-dessous contre le Compose.
+- **Contrat** : l'événement publié par le collector est validé contre `contracts/schemas/energy-measurement-event.schema.json` (prouvé par `CollectorIntegrationTest`) ; chaque route est documentée en OpenAPI générée par **springdoc** et servie par les 4 services (`/v3/api-docs` → 200, Swagger UI). Les fichiers `contracts/*.openapi.yaml` restent **prévus mais non livrés** : les JSON Schemas de `contracts/schemas/` font foi à ce jour.
+- **Bout en bout** : script `scripts/e2e.sh` (`make e2e`) rejouant les scénarios ci-dessous contre le Compose — livré : 64 vérifications, 64 OK (campagne du 28/10/2026, `docs/tests.md`).
 
 ## 12.2 Matrice de recette (reprend le tableau du guide et l'étend)
 
@@ -589,7 +590,7 @@ cassandra-init:
 | J5 | API de consultation + Swagger | Routes 5.4 documentées |
 | J6 | Analytics descriptif + anomalies | Règles 6.5, tests 4 et 8 |
 | J7 | Docker Compose + tests d'intégration | MVP exécutable ; tests 7, 9, 10, 11 |
-| J8 | IA / sécurité / monitoring | Extension choisie et documentée |
+| J8 | IA / sécurité / monitoring | Extension choisie et documentée (§18 : EXT-9C, EXT-11, EXT-12 et/ou EXT-GW) |
 | J9 | Tests finaux, rapport | Matrice de recette complétée |
 | J10 | Soutenance | Démonstration de bout en bout |
 
@@ -609,9 +610,9 @@ Ces points reposent sur ma connaissance des technologies et **n'ont pas été v�
 - **Spring Data Cassandra** : `local-datacenter` obligatoire (`datacenter1` pour l'image officielle) ; ne pas laisser Spring créer le schéma.
 - **DJL + ONNX** : l'exemple du guide est simplifié ; le chargement d'un `.onnx` demande le moteur ONNX Runtime de DJL et un `Translator` adapté. Alternative plus directe : ONNX Runtime Java.
 - **Mesures hors ordre et horloges** : un capteur à l'horloge décalée de moins de 5 minutes dans le futur peut retarder la mise à jour de `latest` (conséquence de D-09) ; acceptable, à mentionner.
-- **Alertes en rafale** : un pic de 10 secondes produit une anomalie par mesure ; le regroupement en « épisodes » est une amélioration.
-- **Débit du stream** : surveiller la mémoire Redis ; si la charge visée dépasse largement la cible, évaluer Kafka (extension).
-- **Portée du projet** : ne pas démarrer les extensions avant la validation du MVP (J7), conformément au guide.
+- **Alertes en rafale** : un pic de 10 secondes produit une anomalie par mesure ; le regroupement en « épisodes » est une amélioration (EXT-B, §18.5).
+- **Débit du stream** : surveiller la mémoire Redis ; si la charge visée dépasse largement la cible, évaluer Kafka (EXT-B, §18.5).
+- **Portée du projet** : ne pas démarrer les extensions (section 18) avant la validation du MVP (J7), conformément au guide.
 
 ---
 
@@ -641,8 +642,9 @@ Ces points reposent sur ma connaissance des technologies et **n'ont pas été v�
 | Étape 8 — API de consultation | 5.4 (EF-06, EF-07, EF-17) |
 | Étape 9 — Analytics | 6.5, 7.5 (EF-08, EF-10 à EF-13) |
 | Étape 10 — Docker | 11 (EF-16) |
-| Étape 11 — Observabilité | 9 (EF-14) |
-| Étape 12 — Sécurité | 10 (EF-18) |
+| Étape 11 — Observabilité | 9 (EF-14), 18.2 (EXT-11) |
+| Étape 12 — Sécurité | 10 (EF-18), 18.3 (EXT-12) |
+| Étape 18 — IA / extensions (J8) | 18.1 (EXT-9C), 18.4 (EXT-GW), 18.5 (EXT-B) |
 | Stratégie de tests | 12 (scénarios 1 à 7 du guide = lignes 1 à 7 de la recette) |
 
 ---
@@ -658,3 +660,67 @@ Ces points reposent sur ma connaissance des technologies et **n'ont pas été v�
 - **TWCS** : stratégie de compaction par fenêtres de temps, adaptée aux séries temporelles.
 - **Temps d'événement** : moment où la mesure a eu lieu (`timestamp`), à distinguer du moment de réception (`receivedAt`).
 - **Problem Details (RFC 9457)** : format standard JSON des erreurs HTTP.
+
+---
+
+# 18. Extensions hors MVP — par étape
+
+Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fait que le **détailler, étape du guide par étape du guide**. Chaque extension porte un identifiant `EXT-*` repris à l'identique dans `docs/TODO-MAP.md` (partie B), le README racine (§8.2 et §10) et les README de services (section `Extension (hors MVP)`).
+
+**Règle** : aucune extension n'est démarrée avant la validation du MVP (J7, §14). Rien n'est codé à ce jour ; les seules traces sont des squelettes de configuration explicitement marqués non codés.
+
+**Gabarit commun** (les 5 sous-sections suivent ce même ordre) : *État → Exigences → Fichiers de départ → Activation → Critère de validation → Renvois*.
+
+## 18.1 EXT-9C — Prévision IA (étape 9C, plan J8)
+
+- **État** : *squelette livré, code non écrit*. La route existe et répond **501 `FORECAST_DISABLED`** ; `ForecastService` ne contient qu'un en-tête `TODO`. Contrat (`ForecastResponse`, `ForecastPoint`) et collection `forecasts` déjà en place.
+- **Exigences** : EF-13 ; règles de calcul §6.5 (dernier point) ; décisions D-18, D-16 (évolutivité du modèle sans changer l'URL).
+- **Fichiers de départ** : `analytics-service/.../forecast/ForecastService.java`, `analytics-service/.../forecast/` (à créer), `ml/` (`train_forecast.py`, `requirements.txt`), `models/` (`.onnx` produit), `ml/README.md`, `models/README.md`.
+- **Activation** : `ANALYTICS_FORECAST_ENABLED=true` + `smartenergy.analytics.forecast.model-path` (défaut `models/energy.onnx`) ; sans modèle ou désactivé → 501 (comportement attendu).
+- **Critère de validation** : MAE et RMSE d'un modèle exporté en ONNX **inférieures à la baseline** (persistance, saisonnier naïf) sur un découpage chronologique ; `GET /api/analytics/{id}/forecast?horizonHours` → 200 avec `points[]` et `metrics` ; inférence Java cohérente avec Python.
+- **Renvois** : §5.4, §6.3, §6.5, §7.5, §9 (métrique `energy_forecast_latency_seconds`), `analytics-service/README.md`, `ml/README.md`, `models/README.md`.
+
+## 18.2 EXT-11 — Observabilité avancée : Prometheus / Grafana (étape 11)
+
+- **État** : *aucun fichier*. Le MVP expose déjà `GET :808x/actuator/prometheus` sur les 4 services et les métriques métier (§9) ; il manque le collecteur Prometheus, le provisioning Grafana et les dashboards.
+- **Exigences** : EF-14 (volet dashboard) ; métriques de §9 et D-24.
+- **Fichiers de départ** : aucun — à créer : service Compose `prometheus` + service Compose `grafana` (profil dédié), config Prometheus, provisioning des datasources et dashboards, restriction d'Actuator côté production (`docs/security.md`).
+- **Activation** : profil Compose dédié (par exemple `--profile monitoring`), déploiement hors MVP.
+- **Critère de validation** : dashboard Grafana affichant **au moins 3 métriques** de §9 en démo (par ex. `energy_measurements_received_total`, `energy_stream_lag{group}`, `energy_anomalies_detected_total{type}`) ; les 4 endpoints `/actuator/prometheus` répondent 200.
+- **Renvois** : §9, `docs/security.md` (« Actuator à restreindre derrière la gateway »), README racine §8.2.
+
+## 18.3 EXT-12 — Sécurité avancée : JWT, rôles, clé d'API (étape 12)
+
+- **État** : *aucun fichier*. Le volet MVP de l'étape 12 est livré (secrets hors Git, validation stricte, limite 10 Ko → 413) : voir §10 et `docs/security.md`.
+- **Exigences** : EF-18 (volet EXT) ; tableau d'accès de `docs/security.md`.
+- **Fichiers de départ** : aucun — à créer : config Spring Security par service, émission/vérification JWT, clé d'API pour `POST /api/measurements`, restriction des routes d'écriture (`POST/PUT/DELETE /api/sensors/**`), TLS via reverse proxy, éventuellement OAuth2.
+- **Activation** : dépendance Spring Security + variables d'environnement (secrets hors Git) ; comportement sans extension : routes d'écriture **publiques** (état actuel documenté).
+- **Critère de validation** : `POST/PUT/DELETE /api/sensors` refusé sans token `ADMIN` (401/403 `problem+json`), lecture refusée sans token `VIEWER` si exigeant, `POST /api/measurements` refusé sans clé d'API ; régression : `make e2e` adapté doit rester vert.
+- **Renvois** : §10, §2 (EF-18), `docs/security.md` (§ Extensions possibles), README `collector-service` et `sensor-service`.
+
+## 18.4 EXT-GW — API Gateway (étapes 10 / 12)
+
+- **État** : *scaffolding livré, non codé* : `gateway-service/pom.xml.example` et `gateway-service/routes.yml.example` uniquement ; module absent du pom parent, absent du Compose.
+- **Exigences** : §7.6 ; D-16 (le versioning d'URL peut être ajouté par la gateway) ; D-17 (routage du `daily-summary` vers analytics).
+- **Fichiers de départ** : `gateway-service/README.md` (pas-à-pas), `routes.yml.example`, `pom.xml.example`.
+- **Activation** : renommer les deux `.example`, ajouter le module au pom parent, service Compose avec profil `gateway` sur `:8080`, retirer la publication des ports 8081–8084.
+- **Critère de validation** : les 5 routes de la table §7.6 répondent via `:8080` avec l'**ordre** respecté (`/api/sensors/*/daily-summary` avant `/api/sensors/**`), Swagger agrégé accessible, CORS et limitation de débit actifs ; couplage naturel avec EXT-12 (JWT vérifié au niveau de la gateway).
+- **Renvois** : §3 (catalogue), §7.6, D-16, D-17, `gateway-service/README.md`, `docs/security.md`.
+
+## 18.5 EXT-B — Évolutivité et valorisation (hors étapes du guide)
+
+- **État** : *aucun fichier* ; réflexion seulement, à activer sur signaux.
+- **Contenu** :
+  - **Kafka** en remplacement de Redis Streams (D-03) : le contrat d'événement reste identique (`schemaVersion`) ;
+  - **Kubernetes** : descripteurs à écrire après stabilisation du Compose ;
+  - **Interface Web** de consultation (dashboard hors Grafana) ;
+  - **Alertes automatiques** sur anomalies, avec regroupement en « épisodes » (limite §14) ;
+  - **Améliorations analytiques** documentées comme limites en §6.5 : recalcul nocturne de l'énergie depuis Cassandra, variante du score z par tranche horaire ;
+  - **OAuth2** et authentification applicative (voir §10 et EXT-12).
+- **Déclencheurs** : `energy_stream_lag` proche de la moitié de `MAXLEN` (→ Kafka), besoin de multi-nœuds (→ K8s), demande utilisateur d'alertes ou de synthèse visuelle.
+- **Critère de validation** : aucun changement de contrat cassant (compatibilité `measurement-contracts/COMPATIBILITY.md`) ; chaque extension ajoutée est répercutée dans §18, la TODO-MAP et le README racine.
+- **Renvois** : §1.3, §6.5, §10, §13 (J8), §14, `docs/decisions.md` (D-03).
+
+---
+
+> **Mise à jour** : toute extension démarrée ou livrée doit mettre à jour — dans le même commit — cette section, `docs/TODO-MAP.md`, le README racine (§8.2 / §10) et le README du service concerné. C'est le contrat d'alignement des documents.

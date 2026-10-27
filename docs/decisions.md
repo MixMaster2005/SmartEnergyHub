@@ -6,7 +6,7 @@ Version complète avec alternatives écartées : `docs/cdc.md` (section 4).
 |---|---|---|
 | D-01 | Services séparés dont sensor-service | Respecte « chaque microservice a ses données » |
 | D-02 | Deux consumer groups (storage, analytics) | Découple persistance et calcul ; écart avec l'étape 7 du guide |
-| D-03 | Redis Streams (Kafka en extension) | Plus léger ; contrat d'évènement portable |
+| D-03 | Redis Streams (Kafka en extension `EXT-B`, CDC §18.5) | Plus léger ; contrat d'évènement portable |
 | D-04 | Redis en AOF + volume | Sinon perte des messages en attente au redémarrage |
 | D-05 | ACK après persistance, reprise des messages bloqués via XPENDING + XCLAIM (D-22), DLQ après 5 livraisons | At-least-once sans bloquer le flux |
 | D-06 | MAXLEN ~ 500000 | Mémoire bornée ; surveiller le lag |
