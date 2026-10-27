@@ -7,9 +7,8 @@
 - `measurements_by_sensor_day` — partition `(sensor_id, day)`, clustering `measured_at DESC`, compaction TWCS
 - `latest_measurement_by_sensor` — une ligne par capteur, écrite avec `USING TIMESTAMP` = date de mesure
 
-## Contrat REST *(à implémenter — étape 8)*
-Aucune route n'est encore câblée (les endpoints ne seront actifs qu'une fois
-`MeasurementQueryController` implémenté) ; contrat cible :
+## Contrat REST *(étape 8 — livré)*
+Routes actives sur le port 8082, documentées en OpenAPI (Swagger UI) :
 
 | Route | Réponses |
 |---|---|
@@ -40,11 +39,22 @@ TIMESTAMP` = temps d'événement sur `latest`, écriture asynchrone du driver
 ACK uniquement après persistance) + tests (`MeasurementKeyTest`,
 `CassandraMappingTest`, `CassandraMeasurementWriterTest` : rejeu, mesure en
 retard, nulls omis, erreurs — Cassandra Testcontainers et application de
-`scripts/init-cassandra.cql`, helpers dans `CassandraTestSupport`).
+`scripts/init-cassandra.cql`, helpers dans `CassandraTestSupport`) ; API de
+lecture (étape 8 : `service/HistoryCursor` — curseur opaque base64url
+`jour|epochMillis`, jeton corrompu → 400 ;
+`service/MeasurementQueryService` — historique avec **une requête Cassandra
+par jour UTC** en asynchrone (`executeAsync` du pilote), fusion par
+concaténation, `LIMIT limit + 1` pour `nextCursor`, plage `[from, to)` de 7 j
+max, `latest` en cache-aside `cache:latest:{sensorId}` (TTL 30 s, Redis
+best-effort) ;
+`web/MeasurementQueryController` — `GET /api/measurements/{sensorId}` et
+`/latest`, `@DateTimeFormat(ISO.DATE_TIME)`, OpenAPI ; test unitaire
+`HistoryCursorTest`).
 
 ## À faire (dans l'ordre)
-1. `service/HistoryCursor`, `MeasurementQueryService`, `web/MeasurementQueryController` (étape 8)
-2. `StorageIntegrationTest` — scénarios 5, 6, 8 ; scénario 3 une fois l'étape 8 livrée (cf. `docs/tests.md`)
+1. `StorageIntegrationTest` — scénarios 5, 6, 8 et 3 (historique de bout en
+   bout : scénario 3 testable dès maintenant que l'étape 8 est livrée ;
+   cf. `docs/tests.md`)
 
 ## Pièges
 - **ACK après persistance** uniquement, sinon perte silencieuse.
@@ -52,6 +62,8 @@ retard, nulls omis, erreurs — Cassandra Testcontainers et application de
   erreur remonte telle quelle → pas d'ACK → **tout le lot** est rejoué (sans danger, writer
   idempotent). Ne jamais acquitter un lot partiellement écrit.
 - Une requête **par jour** de la plage ; jamais de `IN` sur la clé de partition.
+- Curseur d'historique : borne **stricte** uniquement sur le jour du curseur (`>` en asc,
+  `<` en desc), bornes normales sur les autres jours — sinon doublons ou trous de pagination.
 - Null explicite = tombstone : omettre les colonnes absentes (Spring Data les omit par défaut,
   ne pas activer `insertNulls`).
 - `USING TIMESTAMP` attend des **microsecondes** : passer un `Instant` à `InsertOptions`
@@ -61,10 +73,12 @@ retard, nulls omis, erreurs — Cassandra Testcontainers et application de
   `spring.data.cassandra.*`) ; s'il est au même niveau que `data:`, tout le bloc est
   ignoré silencieusement et le driver retombe sur `127.0.0.1:9042`.
 
-## Critère de validation (étape 7 — satisfait)
-Le writer et le consumer sont livrés et couverts par `CassandraMeasurementWriterTest`
-(rejeu → une seule ligne, mesure en retard sans effet sur `latest`, nulls omis, métriques,
-erreur propagée). Reste à vérifier en manuel de bout en bout : mesure envoyée au collector
-retrouvée dans Cassandra via `cqlsh` (et `GET /api/measurements/{sensorId}` une fois l'étape 8
-livrée) ; l'arrêt puis le redémarrage du service ne perd rien (scénarios 5 et 6,
+## Critère de validation (étapes 7 et 8 — satisfaits)
+Le writer, le consumer et l'API de lecture sont livrés et couverts par
+`CassandraMeasurementWriterTest` (rejeu → une seule ligne, mesure en retard sans effet sur
+`latest`, nulls omis, métriques, erreur propagée) et `HistoryCursorTest` (aller-retour du
+curseur, jetons corrompus rejetés en 400). Reste à vérifier en manuel de bout en bout :
+mesure envoyée au collector retrouvée dans Cassandra via `cqlsh` **et** via
+`GET /api/measurements/{sensorId}` (scénario 3 de `docs/tests.md`, débloqué par l'étape 8) ;
+l'arrêt puis le redémarrage du service ne perd rien (scénarios 5 et 6,
 `StorageIntegrationTest`).

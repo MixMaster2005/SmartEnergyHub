@@ -5,17 +5,8 @@ Chaque fichier contient : le guide/CDC de référence, les étapes à suivre, le
 puis un **squelette commenté** à décommenter (`Ctrl+/`) et à compléter.
 
 Ordre conseillé : de haut en bas. Les classes déjà opérationnelles (contrats, plomberie web, sensor-service,
-simulateur, persistance storage des étapes 5 et 7, scripts de base de données, Docker) ne figurent pas ici.
-
-## Étape 8 · API de consultation  _(plan : J5)_
-
-| Fichier | À faire |
-|---|---|
-| `storage-service/src/main/java/com/smartenergy/storage/service/HistoryCursor.java` | Curseur de pagination opaque (jour + dernier measured_at) |
-| `storage-service/src/main/java/com/smartenergy/storage/service/MeasurementQueryService.java` | Lecture de l'historique et de la derniere mesure |
-| `storage-service/src/main/java/com/smartenergy/storage/web/MeasurementQueryController.java` | Routes GET /api/measurements/{sensorId} et /latest |
-| `analytics-service/src/main/java/com/smartenergy/analytics/service/AnalyticsQueryService.java` | Lecture des indicateurs : summary, daily-summary, anomalies, exceedances |
-| `analytics-service/src/main/java/com/smartenergy/analytics/web/AnalyticsController.java` | Routes /api/analytics/** et alias /api/sensors/{id}/daily-summary |
+simulateur, persistance storage des étapes 5 et 7, API de consultation de l'étape 8, scripts de base de
+données, Docker) ne figurent pas ici.
 
 ## Étape 12 · Sécurité  _(plan : J8)_
 
@@ -37,4 +28,4 @@ simulateur, persistance storage des étapes 5 et 7, scripts de base de données,
 | `storage-service/src/test/java/com/smartenergy/storage/StorageIntegrationTest.java` | Tests d'integration du storage (Testcontainers Redis + Cassandra) |
 | `analytics-service/src/test/java/com/smartenergy/analytics/AnalyticsIntegrationTest.java` | Tests d'integration analytics (Testcontainers Redis + MongoDB) |
 
-**Total : 10 fichiers à compléter.**
+**Total : 5 fichiers à compléter.**

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # Scenarios de recette HTTP (docs/tests.md). Prerequis : plateforme demarree (make up).
-# Les scenarios 1 et 2 fonctionnent des que le collector est active (etape 3).
+# Les scenarios 1 a 3 fonctionnent des que l'API de consultation est active (etape 8).
 # Les suivants sont marques TODO : completez-les au fil de l'avancement et reportez
 # les resultats dans docs/tests.md.
 # ============================================================================
@@ -38,9 +38,14 @@ check "POST sans sensorId" 400 "$(post_status "$COLLECTOR/api/measurements" \
   "{\"timestamp\":\"$NOW\",\"powerKw\":3.72,\"voltage\":226.4}")"
 AFTER=$(xlen); check "XLEN inchange" 0 "$((AFTER-BEFORE))"
 
-echo "== Scenario 3 : historique -> TODO (etape 8)"
-# FROM=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)
-# check "GET historique" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$STORAGE/api/measurements/SENSOR-001?from=$FROM&to=$NOW")"
+echo "== Scenario 3 : historique (etape 8)"
+# La persistance est asynchrone (stream -> storage) : on laisse le temps au consumer
+# d'acquitter le lot du scenario 1 avant de relire l'historique.
+sleep 2
+FROM=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)
+check "GET historique" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$STORAGE/api/measurements/SENSOR-001?from=$FROM&to=$NOW")"
+check "GET latest" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$STORAGE/api/measurements/SENSOR-001/latest")"
+check "GET historique plage invalide -> 400" 400 "$(curl -s -o /dev/null -w '%{http_code}' "$STORAGE/api/measurements/SENSOR-001?limit=0")"
 
 echo "== Scenario 4 : pic x3 -> anomalie THRESHOLD -> TODO (etape 9)"
 # lancer : docker compose run --rm simulator --smartenergy.simulator.anomaly.sensor=SENSOR-003

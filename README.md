@@ -202,9 +202,10 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 - [x] Documentation (`docs/`).
 - [x] Storage : étape 5 (entités Cassandra + tests de mapping Testcontainers).
 - [x] Storage : étape 7 (writer idempotent asynchrone, consumer, tests Testcontainers).
-- [ ] Storage : étape 8 (API historique).
 - [x] Analytics : étape 9 (règles, agrégats, consumer, dédup).
-- [ ] Analytics : étape 8 (API de consultation : summary, anomalies, exceedances).
+- [x] Étape 8 (API de consultation : historique paginé + latest storage,
+      summary/daily-summary/anomalies/exceedances analytics, alias D-17,
+      forecast déclaré en 501, OpenAPI).
 - [ ] Étape 12 (limite 10 Ko), prévision 9C, tests d'intégration.
 
 Voir `docs/TODO-MAP.md` pour la liste à jour des fichiers restants.

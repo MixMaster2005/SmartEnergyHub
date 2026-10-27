@@ -3,15 +3,15 @@
 **Rôle** : transformer les mesures en information — agrégats horaires/quotidiens, dépassements de seuil, anomalies, prévision
 (EF-08 à EF-13). **Propriétaire** de MongoDB `analytics_db`. Consomme le stream via **`analytics-group`**
 (indépendant du stockage) — consumer, règles et agrégats livrés à l'étape 9.
-Swagger UI (springdoc via platform-web) : http://localhost:8083/swagger-ui.html — aucune route analytics n'y figure tant que
-l'étape 8 n'est pas livrée (EF-17 : documenter toutes les routes en OpenAPI avec exemples).
+Swagger UI (springdoc via platform-web) : http://localhost:8083/swagger-ui.html — les routes
+`/api/analytics/**` (étape 8) y figurent avec exemples (EF-17).
 
 ## Données (`scripts/init-mongo.js`)
 `sensor_state` (état + statistiques de Welford) · `hourly_aggregates` · `daily_aggregates` · `anomalies` (unique `eventId + type`) ·
 `forecasts` (extension). Agrégats **additifs** : moyenne = `sumPowerKw / count`, calculée à la lecture.
 
-## Contrat REST *(à implémenter — étapes 8 et 9C)*
-Aucune route `/api/analytics/**` n'est encore câblée ; contrat cible :
+## Contrat REST *(étape 8 — livré ; forecast reste en 501)*
+Routes actives sur le port 8083, documentées en OpenAPI :
 
 | Route | Notes |
 |---|---|
@@ -19,7 +19,7 @@ Aucune route `/api/analytics/**` n'est encore câblée ; contrat cible :
 | `GET /api/analytics/{sensorId}/daily-summary?date` et alias `GET /api/sensors/{id}/daily-summary` | agrégat quotidien ; défaut `date=jour UTC courant` (alias = D-17) |
 | `GET /api/analytics/{sensorId}/anomalies?from&to&type&page&size` | anomalies récentes d'abord ; `type` ∈ `THRESHOLD`, `ZSCORE`, `FORECAST_RESIDUAL` |
 | `GET /api/analytics/exceedances?threshold&from&to` | `threshold` **obligatoire** ; sans dates : état courant ; avec : maximum quotidien |
-| `GET /api/analytics/{sensorId}/forecast?horizonHours` | **extension** ; défaut 6 h, plage 1–24 ; 501 `FORECAST_DISABLED` si inactif |
+| `GET /api/analytics/{sensorId}/forecast?horizonHours` | **extension 9C** ; déclarée dès l'étape 8 mais toujours **501 `FORECAST_DISABLED`** (aucun code de prévision livré) |
 
 ## Règles de calcul (CDC 6.5) — *(étape 9, livrées)*
 Implémentées dans `rules/AnalyticsRules` (classe **pure**, testée par `AnalyticsRulesTest` — 9 cas) :
@@ -38,6 +38,11 @@ Client REST vers sensor-service : `client/SensorClient` (cache Redis 60 s, clé 
 via l'index unique `(eventId, type)`), `stream/AnalyticsStreamConsumer` (dédupe avant/après écriture,
 tri par timestamp, seuil via `SensorClient`, état Welford dans `sensor_state`, métrique
 `energy_anomalies_detected_total{type}`).
+**Étape 8** : `service/AnalyticsQueryService` (summary aligné sur les heures pleines D-13, moyenne
+recalculée `somme(sumPowerKw)/somme(count)`, `dailySummary` par `_id = "sensorId|yyyy-MM-dd"`,
+`anomalies` paginé trié `timestamp desc`, `exceedances` état courant via `sensor_state` / maximum
+quotidien via `daily_aggregates`) + `web/AnalyticsController` (routes + alias `/api/sensors/{id}/daily-summary`
+D-17, `forecast` déclaré en 501, OpenAPI).
 
 ## Configuration (`application.yml`)
 `SERVER_PORT` (8083 en local, 8080 dans Docker) · `REDIS_HOST/PORT/PASSWORD` · `MONGO_HOST/PORT` +
@@ -48,13 +53,16 @@ readiness `readinessState,redis,mongo`. Dédup Redis : clé `dedup:analytics:{ev
 traitement, marquée après écriture Mongo réussie).
 
 ## À faire (dans l'ordre)
-1. `service/AnalyticsQueryService`, `web/AnalyticsController` (étape 8) — annoter en OpenAPI
-2. `AnalyticsIntegrationTest` — scénarios 4, 8, 11 (après l'étape 8 : la preuve du scénario 4 passe par `/anomalies`)
-3. *(extension)* `forecast/ForecastService` + `ml/` — désactivé par défaut (`forecast.enabled=false`, 501 `FORECAST_DISABLED`)
+1. `AnalyticsIntegrationTest` — scénarios 4, 8, 11 (l'étape 8 étant livrée, la preuve du
+   scénario 4 passe par `/anomalies`)
+2. *(extension)* `forecast/ForecastService` + `ml/` — désactivé par défaut (`forecast.enabled=false`, 501 `FORECAST_DISABLED`)
 
 ## Pièges
 - Traiter les mesures d'un lot **dans l'ordre des timestamps**.
 - `summary` : moyenne = somme des sommes / somme des comptes (pas la moyenne des moyennes).
+- Tant que le consumer (étape 9) n'a **pas encore écrit** les agrégats d'une période (aucune mesure
+  reçue depuis le démarrage), `summary`/`daily-summary`/`exceedances?from` renvoient **404 `NO_DATA`** :
+  c'est le comportement attendu, pas une erreur serveur.
 - Mesures très en retard → énergie légèrement faussée (recalcul nocturne = amélioration possible).
 - Un sinus gonfle l'écart-type : documenter la limite du z-score.
 - Dédup : vérifier avant, marquer **après** les écritures Mongo ; une panne entre les deux peut compter une

@@ -1,13 +1,13 @@
 # Preuves de tests (matrice de recette)
 
 À compléter au fil de l'avancement. Les scénarios 1 à 7 reprennent le tableau du guide ; 8 à 11 sont ajoutés par le cahier des charges.
-Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 et 2 ; le reste est commenté TODO).
+Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 à 3 ; le reste est commenté TODO).
 
 > **Numérotations** : cette matrice utilise les scénarios **1–11** (CDC) ; le gabarit de
 > preuves `preuves/tests/resultats-modele.md` utilise les labels **T01–T14** du guide.
 > Les deux référent le même recette.
 
-## Tests unitaires présents dans le dépôt (56 tests actifs)
+## Tests unitaires présents dans le dépôt (64 tests actifs)
 
 | Classe | Service | Cas |
 |---|---|---|
@@ -20,6 +20,7 @@ Automatisation partielle : `make e2e` (`scripts/e2e.sh`, scénarios 1 et 2 ; le 
 | `MeasurementKeyTest` | storage | 3 (clés primaires composites, égalité) |
 | `CassandraMappingTest` | storage | 5 (mapping entités sur Cassandra Testcontainers, D-08 à D-10) |
 | `CassandraMeasurementWriterTest` | storage | 4 (rejeu → une seule ligne, `USING TIMESTAMP` sur `latest`, nulls omis, erreur propagée + métriques, D-09 à D-10, D-23) |
+| `HistoryCursorTest` | storage | 8 (aller-retour du curseur base64url, jeton non URL-safe, collisions, jetons corrompus → 400 `INVALID_PARAMETER`, étape 8) |
 | `AnalyticsRulesTest` | analytics | 9 (énergie rectangle tronquée, seuil strict, Welford, score z, limites documentées) |
 | `StreamLagMetricsTest` | platform | 4 (noms de métriques + tag `group`, refresh pending/lag, tolérance d'une panne Redis, lag inconnu/groupe absent = 0, D-24) |
 
