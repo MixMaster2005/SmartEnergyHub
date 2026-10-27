@@ -58,3 +58,18 @@ Une requête valide crée un évènement dans Redis ; une requête invalide n'en
 *(Prouvé par `CollectorIntegrationTest` : 202 + `X-Event-Id` + `XLEN` +1 pour une mesure
 valide, 400 `application/problem+json` sans aucune publication pour l'invalide,
 503 + `Retry-After: 5` quand Redis est arrêté.)*
+
+## Extension (hors MVP)
+
+Gabarit du CDC §18 — **rien n'est codé**.
+
+- **`EXT-12` — Sécurité avancée (étape 12)** — *aucun fichier*.
+  Actuellement `POST /api/measurements` est **public** (état documenté dans `docs/security.md`) ;
+  l'extension prévoit une **clé d'API** ou un **JWT** sur cette route, sans changer le contrat 5.2
+  (réponses 401/403 au format `application/problem+json` à ajouter au tableau ci-dessus).
+  - Activation : Spring Security + variable d'environnement (secret hors Git).
+  - Critère : mesure sans clé d'API refusée, `make e2e` adapté reste vert.
+  - Renvois : CDC §18.3 · `docs/TODO-MAP.md` partie B · `docs/security.md` · README racine §8.2.
+- **`EXT-GW` — API Gateway (étapes 10/12)** — *scaffolding non codé* (`gateway-service/*.example`) :
+  la route `POST /api/measurements` sera routée vers ce service via `:8080` (ordre du tableau CDC §7.6).
+  - Renvois : CDC §18.4 · `gateway-service/README.md`.

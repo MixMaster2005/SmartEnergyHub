@@ -27,3 +27,10 @@ docker compose run --rm simulator \
 | `invalid-rate`, `duplicate-rate` | 0 | mesures invalides / doublons (scénarios 2 et 8) |
 
 Un 4xx est compté « rejeté » sans réessai ; un 503 ou une erreur réseau est retenté 3 fois avec délai croissant.
+
+## Extension (hors MVP)
+
+Renvois : `EXT-9C` (CDC §18.1) — le simulateur sert à **générer l'historique d'entraînement**
+(`period-seconds` = 86400, durée multi-jours) ; `EXT-12` (CDC §18.3) — prévoir l'envoi d'une clé d'API
+si `POST /api/measurements` est protégé. Voir `docs/cdc.md` §18, `docs/TODO-MAP.md` partie B et
+README racine §8.2.

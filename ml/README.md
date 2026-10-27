@@ -14,3 +14,13 @@
 7. **Limites** : taille de l'historique, saisonnalité, capteurs peu actifs, dérive.
 
 `train_forecast.py` est un squelette commenté ; `requirements.txt` liste les dépendances pressenties (à valider).
+
+## Extension (hors MVP)
+
+Identifiant **`EXT-9C`** (étape 9C, plan J8) — *squelette livré, code non écrit*.
+Ce dossier est la composante **entraînement** de l'extension ; la composante **inférence** vit dans
+`analytics-service` (`forecast/ForecastService`, endpoint en 501 tant que désactivé).
+
+- **Activation** : produire `../models/energy.onnx`, puis `ANALYTICS_FORECAST_ENABLED=true`.
+- **Critère** : MAE/RMSE du modèle < baseline (persistance, saisonnier naïf) ; inférence Java cohérente avec Python.
+- **Renvois** : CDC §18.1 · `docs/TODO-MAP.md` partie B · `analytics-service/README.md` · `models/README.md` · README racine §8.2.

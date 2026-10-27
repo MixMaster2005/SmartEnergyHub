@@ -10,3 +10,9 @@ Les services lèvent `ApiException(ErrorCode, ...)` ; le handler produit `applic
 Un service qui consomme le stream (`smartenergy.stream.group` défini) expose automatiquement les métriques
 `energy_stream_pending` et `energy_stream_lag` (étape 11), vérifiables sur
 `GET :808x/actuator/metrics/energy_stream_pending` ; le collector, qui publie sans consommer, ne les a pas.
+
+## Extension (hors MVP)
+
+`platform-stream` fournit les métriques de base de l'extension **`EXT-11`** (CDC §18.2) : elles sont
+déjà exposées en `/actuator/prometheus`, il manque Prometheus + Grafana. Renvois : CDC §18.2 ·
+`docs/TODO-MAP.md` partie B · README racine §8.2.

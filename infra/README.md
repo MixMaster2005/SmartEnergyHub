@@ -37,3 +37,10 @@ Les opérations `reset` et `clean` suppriment les volumes et peuvent effacer les
 ## Vérification
 
 `se.sh` a été vérifié avec `bash -n` et testé avec un faux binaire `docker` pour les commandes `help`, `doctor`, `start --no-wait`, `stop`, `restart`, `rebuild`, `logs`, `sim`, `stream`, `count`, `redis`, `shell`, `down`, `reset --yes` et la gestion d'une commande inconnue. Les tests peuvent être rejoués avec `bash infra/linux/tests/smoke-mock-docker.sh`. Ils n'allument pas une plateforme réelle. La version PowerShell n'a pas pu être exécutée dans l'environnement de reconstruction faute de `pwsh`; elle doit être validée sur Windows/PowerShell avant utilisation en production.
+
+## Extension (hors MVP)
+
+Les extensions du CDC §18 se déploieront par **profils Compose** supplémentaires (par exemple
+`--profile monitoring` pour `EXT-11` Prometheus/Grafana, profil `gateway` pour `EXT-GW`) sans
+modifier les commandes de cycle de vie ci-dessus. Renvois : CDC §18 · `docs/TODO-MAP.md` partie B ·
+README racine §8.2.

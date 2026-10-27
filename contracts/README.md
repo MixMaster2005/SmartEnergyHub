@@ -25,3 +25,11 @@ corps HTTP, de l'événement Redis et des erreurs.
 ## Ce qui est déjà vérifié
 `EventIds` (vecteur de référence UUID v5), aller-retour `MeasurementEventCodec`, champs optionnels omis, nombres non finis et
 versions inconnues rejetés : voir `measurement-contracts/src/test`.
+
+## Extension (hors MVP)
+
+Le contrat d'événement est **portable** : c'est la base de l'extension **`EXT-B`** (CDC §18.5) — un
+passage à Kafka ne doit pas changer `EnergyMeasurement` ni sa `schemaVersion`
+(`measurement-contracts/COMPATIBILITY.md`). Les extensions ajoutent leurs routes aux README de
+services, jamais de champ obligatoire sans bump de `schemaVersion` (§5.1 du CDC).
+Renvois : CDC §18.5 · `docs/TODO-MAP.md` partie B · README racine §8.2.

@@ -35,9 +35,26 @@ readiness `mongo`. Les 5 routes portent des annotations OpenAPI (springdoc via p
 ## Tests
 `SensorServiceTest` (Mockito, sans base) : création, doublon, `sensorId` incohérent, inconnu (PUT), taille de page — 5 tests.
 À ajouter : `PUT` avec `version` périmée → 409, `DuplicateKeyException` → 409, création puis lecture,
-test d'intégration Testcontainers MongoDB (scénario « métadonnées consultables Cassandra arrêtée »).
+test d'intégration Testcontainers MongoDB (scénario « métadonnées consultables Cassandra arrêtée ») —
+**reportés dans `docs/TODO-MAP.md` partie A (3 lignes)**.
 Les dépendances Testcontainers sont déjà dans le `pom.xml` (scope test).
 
 ## Pièges
 - L'unicité repose sur l'**index** MongoDB (course entre deux créations) ; le contrôle `existsBySensorId` ne suffit pas seul — le rattrapage est le `catch (DuplicateKeyException)` → 409.
 - Les index ne sont pas créés par Spring (auto-index-creation non activée explicitement) : ils viennent du script d'initialisation.
+
+## Extension (hors MVP)
+
+Gabarit du CDC §18 — **rien n'est codé**.
+
+- **`EXT-12` — Sécurité avancée (étape 12)** — *aucun fichier*.
+  Actuellement les routes d'écriture `POST/PUT/DELETE /api/sensors` sont **publiques**
+  (état documenté dans `docs/security.md`) ; l'extension ajoute Spring Security avec les rôles
+  **`ADMIN`** (écriture) et **`VIEWER`** (lecture), idéalement vérifiés au niveau de la gateway.
+  - Activation : Spring Security + JWT (variables d'environnement, secrets hors Git).
+  - Critère : écriture sans token `ADMIN` → 401/403 `application/problem+json` ; lecture `GET /api/sensors` selon le rôle exigé.
+  - Renvois : CDC §18.3 · `docs/TODO-MAP.md` partie B · `docs/security.md` · README racine §8.2.
+- **`EXT-GW` — API Gateway (étapes 10/12)** — *scaffolding non codé* : après activation, ce service
+  n'est plus publié sur `:8084` mais atteint via `:8080` (attention à l'ordre des règles :
+  `/api/sensors/*/daily-summary` → analytics **avant** `/api/sensors/**` → sensor, CDC §7.6).
+  - Renvois : CDC §18.4 · `gateway-service/README.md`.

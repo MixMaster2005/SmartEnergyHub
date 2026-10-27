@@ -8,7 +8,7 @@ Swagger UI (springdoc via platform-web) : http://localhost:8083/swagger-ui.html 
 
 ## Données (`scripts/init-mongo.js`)
 `sensor_state` (état + statistiques de Welford) · `hourly_aggregates` · `daily_aggregates` · `anomalies` (unique `eventId + type`) ·
-`forecasts` (extension). Agrégats **additifs** : moyenne = `sumPowerKw / count`, calculée à la lecture.
+`forecasts` (`EXT-9C`). Agrégats **additifs** : moyenne = `sumPowerKw / count`, calculée à la lecture.
 
 ## Contrat REST *(étape 8 — livré ; forecast reste en 501)*
 Routes actives sur le port 8083, documentées en OpenAPI :
@@ -19,14 +19,14 @@ Routes actives sur le port 8083, documentées en OpenAPI :
 | `GET /api/analytics/{sensorId}/daily-summary?date` et alias `GET /api/sensors/{id}/daily-summary` | agrégat quotidien ; défaut `date=jour UTC courant` (alias = D-17) |
 | `GET /api/analytics/{sensorId}/anomalies?from&to&type&page&size` | anomalies récentes d'abord ; `type` ∈ `THRESHOLD`, `ZSCORE`, `FORECAST_RESIDUAL` |
 | `GET /api/analytics/exceedances?threshold&from&to` | `threshold` **obligatoire** ; sans dates : état courant ; avec : maximum quotidien |
-| `GET /api/analytics/{sensorId}/forecast?horizonHours` | **extension 9C** ; déclarée dès l'étape 8 mais toujours **501 `FORECAST_DISABLED`** (aucun code de prévision livré) |
+| `GET /api/analytics/{sensorId}/forecast?horizonHours` | **extension `EXT-9C`** ; déclarée dès l'étape 8 mais toujours **501 `FORECAST_DISABLED`** (aucun code de prévision livré) |
 
 ## Règles de calcul (CDC 6.5) — *(étape 9, livrées)*
 Implémentées dans `rules/AnalyticsRules` (classe **pure**, testée par `AnalyticsRulesTest` — 9 cas) :
 énergie rectangle à gauche (pas de temps plafonné à 5 × 2 s, `0` si timestamp non croissant) · seuil strict `P > Pmax` ·
 score z par Welford (min 30 échantillons, seuil 3, mesures anormales exclues des statistiques) ·
 sévérité `THRESHOLD`=HIGH, `ZSCORE`=MEDIUM.
-Métriques (CDC 7.5) : `energy_anomalies_detected_total{type}` (livrée), `energy_forecast_latency_seconds` (9C).
+Métriques (CDC 7.5) : `energy_anomalies_detected_total{type}` (livrée), `energy_forecast_latency_seconds` (`EXT-9C`).
 
 ## Déjà fait
 Application, propriétés, `Clock`, documents Mongo (records), `application.yml`, Actuator + Swagger.
@@ -55,7 +55,7 @@ traitement, marquée après écriture Mongo réussie).
 ## À faire (dans l'ordre)
 1. _(rien : `AnalyticsIntegrationTest` est livré — scénarios 4, 8 et 11, Redis + MongoDB en
    Testcontainers et un faux sensor-service HTTP embarqué pour le scénario 11.)_
-2. *(extension)* `forecast/ForecastService` + `ml/` — désactivé par défaut (`forecast.enabled=false`, 501 `FORECAST_DISABLED`)
+2. *(extension `EXT-9C`)* `forecast/ForecastService` + `ml/` — voir la section ci-dessous.
 
 ## Pièges
 - Traiter les mesures d'un lot **dans l'ordre des timestamps**.
@@ -73,3 +73,21 @@ traitement, marquée après écriture Mongo réussie).
 - **Doublon intra-lot** : deux envois rapprochés du même évènement arrivent dans le même lot,
   *avant* le marquage du dedup Redis ; le consumer ne garde qu'une occurrence par `eventId`,
   sinon les compteurs seraient incrémentés deux fois (scénario 8).
+
+## Extension (hors MVP)
+
+Gabarit du CDC §18 — **rien n'est codé** dans les deux extensions concernant ce service.
+
+- **`EXT-9C` — Prévision IA (étape 9C, J8)** — *squelette livré, code non écrit*.
+  - Fichiers : `forecast/ForecastService.java` (en-tête `TODO`), `ml/` (entraînement Python,
+    export ONNX), `models/energy.onnx` (monté en lecture seule dans le conteneur).
+  - Activation : `ANALYTICS_FORECAST_ENABLED=true` + `smartenergy.analytics.forecast.model-path` ;
+    sinon l'endpoint `/api/analytics/{id}/forecast` reste en **501 `FORECAST_DISABLED`** (comportement attendu).
+  - Critère : MAE/RMSE du modèle ONNX **< baseline** (persistance, saisonnier naïf), réponse 200
+    avec `points[]` et `metrics`.
+  - Renvois : CDC §18.1 · `docs/TODO-MAP.md` partie B · `ml/README.md` · `models/README.md` · README racine §8.2.
+- **`EXT-11` — Observabilité avancée (étape 11)** — *aucun fichier*.
+  Les métriques nécessaires au dashboard sont **déjà exposées** : `GET :8083/actuator/prometheus`
+  (`energy_anomalies_detected_total{type}`, `energy_stream_lag{group}`, …). Il manque Prometheus,
+  Grafana et les dashboards (à créer côté infra).
+  - Renvois : CDC §18.2 · `docs/TODO-MAP.md` partie B · README racine §8.2.

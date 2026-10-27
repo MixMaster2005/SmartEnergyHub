@@ -84,3 +84,21 @@ retrouvée via `GET /api/measurements/{sensorId}` et `/latest` (scénario 3), re
 ligne (scénario 8), événement illisible en DLQ sans casser le flux, ancien après récent sans
 effet sur `latest`, et arrêt/reprise du consumer sans perte (scénarios 5 et 6). La recette
 plateforme (`scripts/e2e.sh`, scénarios 5, 6 et 7) le vérifie en conditions réelles Docker.
+
+## Extension (hors MVP)
+
+Gabarit du CDC §18 — **rien n'est codé**.
+
+- **`EXT-11` — Observabilité avancée (étape 11)** — *aucun fichier*.
+  Les métriques nécessaires au dashboard sont **déjà exposées** : `GET :8082/actuator/prometheus`
+  (`energy_stream_pending{group}`, `energy_stream_lag{group}`, `energy_persist_duration_seconds`,
+  `energy_persist_errors_total`). Il manque Prometheus, Grafana et les dashboards (côté infra).
+  - Critère : ces métriques visibles dans Grafana (≥ 3 métriques CDC §9 en démo).
+  - Renvois : CDC §18.2 · `docs/TODO-MAP.md` partie B · README racine §8.2.
+- **`EXT-GW` — API Gateway (étapes 10/12)** — *scaffolding non codé* : les routes `GET /api/measurements/**`
+  seront routées vers ce service via `:8080` (publication de `:8082` retirée).
+  - Renvois : CDC §18.4 · `gateway-service/README.md`.
+- **`EXT-B` — Évolutivité** — en cas de signal (`energy_stream_lag` proche de 50 % de `MAXLEN`),
+  migration possible du transport vers **Kafka** : le contrat d'événement (`schemaVersion`,
+  `contracts/`) reste identique (D-03).
+  - Renvois : CDC §18.5 · `docs/decisions.md` D-03.
