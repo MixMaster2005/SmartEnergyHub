@@ -23,22 +23,24 @@ Docker) ne figurent pas ici.
 
 ### Tests manquants — `sensor-service`  _(plan : au fil de l'eau)_
 
-[manuelles] Trois tests annoncés dans `sensor-service/README.md` (section « Tests ») mais pas encore écrits :
+**Fait le 28/10/2026** : les trois tests annoncés ci-dessous sont écrits et verts (voir `docs/tests.md`).
 
-| Fichier / cible | À faire |
+| Fichier / cible | État |
 |---|---|
-| `sensor-service/src/test/.../SensorServiceTest.java` | `PUT` avec `version` périmée → 409 `VERSION_CONFLICT` |
-| `sensor-service/src/test/.../SensorServiceTest.java` | `DuplicateKeyException` (course sur l'index unique) → 409 |
-| `sensor-service/src/test/.../SensorServiceIntegrationTest.java` (à créer) | intégration Testcontainers MongoDB : création puis lecture ; métadonnées consultables avec Cassandra arrêté (critère de l'étape 6) |
+| `sensor-service/src/test/.../SensorServiceTest.java` | **OK** — `PUT` avec `version` périmée → 409 `VERSION_CONFLICT` (+ version courante acceptée) |
+| `sensor-service/src/test/.../SensorServiceTest.java` | **OK** — `DuplicateKeyException` (course sur l'index unique) → 409 `SENSOR_ALREADY_EXISTS` |
+| `sensor-service/src/test/.../SensorServiceIntegrationTest.java` | **OK** — intégration Testcontainers MongoDB : création puis lecture (201 + `Location`, filtre `building`) ; métadonnées consultables avec Cassandra arrêté (critère étape 6) ; doublon → 409 + index `uk_sensorId` vérifié |
 
-**Total A : aucun code MVP en attente — 3 tests à écrire.**
+**Total A : aucun code MVP en attente — 0 test à écrire (3/3 livrés).**
 
 ### Tests d'intégration et unitaires livrés  _(pour mémoire)_
 
 Tests d'intégration **livrés** (Testcontainers, exécutés à chaque `mvn test`) :
 `CollectorIntegrationTest` (6 tests, scénarios 1, 2, 8, 9),
 `StorageIntegrationTest` (5 tests, scénarios 3, 5, 6, 8),
-`AnalyticsIntegrationTest` (4 tests, scénarios 4, 8, 11, avec faux sensor-service HTTP).
+`AnalyticsIntegrationTest` (4 tests, scénarios 4, 8, 11, avec faux sensor-service HTTP),
+`SensorServiceIntegrationTest` (3 tests, critère étape 6 — création/lecture, lecture sans
+Cassandra, doublon → 409).
 Recette de bout en bout : `make e2e` (scénarios 1–11 + 413, 64/64 OK — `docs/tests.md`).
 
 ---
@@ -116,7 +118,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §10.2.
 ---
 
 **Total général** :
-**A (MVP)** : 3 tests à écrire.
+**A (MVP)** : **terminé** — 0 test en attente (les 3 tests `sensor-service` sont livrés).
 **B (extensions)** : `EXT-9C` → 1 fichier de code à décommenter (`ForecastService`) + 2 fichiers à
 produire (`ml/train_forecast.py`, `models/energy.onnx`) ; `EXT-GW` → 2 fichiers `.example` à
 finaliser ; `EXT-11`, `EXT-12`, `EXT-B` → aucun fichier, tâches manuelles à créer.

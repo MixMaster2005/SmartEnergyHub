@@ -49,3 +49,6 @@
   l'environnement, pas au code.
 - L'**étape 9C (prévision IA)** est hors périmètre de cette campagne : `forecast` est désactivé
   par défaut et renvoie 501 `FORECAST_DISABLED`.
+- Les **3 tests `sensor-service`** restants de la partie A du `TODO-MAP` ont été écrits **après**
+  cette campagne (même date) : `mvn -B test` complet → **94/94 verts** (76 unitaires + 18
+  d'intégration, dont `SensorServiceIntegrationTest`), voir `docs/tests.md`.

@@ -1,7 +1,7 @@
 # sensor-service (port local 8084, 8080 dans Docker)
 
 **Rôle** : registre des capteurs (métadonnées et seuil `maxPowerKw`) — EF-05. CRUD complet,
-testé unitairement. **Propriétaire** de MongoDB `sensor_db` (utilisateur `sensor_app`,
+testé unitairement et en intégration (Testcontainers MongoDB). **Propriétaire** de MongoDB `sensor_db` (utilisateur `sensor_app`,
 droits limités à cette base).
 
 ## Contrat
@@ -33,11 +33,16 @@ Les index sont créés par `scripts/init-mongo.js` (pas par Spring).
 readiness `mongo`. Les 5 routes portent des annotations OpenAPI (springdoc via platform-web).
 
 ## Tests
-`SensorServiceTest` (Mockito, sans base) : création, doublon, `sensorId` incohérent, inconnu (PUT), taille de page — 5 tests.
-À ajouter : `PUT` avec `version` périmée → 409, `DuplicateKeyException` → 409, création puis lecture,
-test d'intégration Testcontainers MongoDB (scénario « métadonnées consultables Cassandra arrêtée ») —
-**reportés dans `docs/TODO-MAP.md` partie A (3 lignes)**.
-Les dépendances Testcontainers sont déjà dans le `pom.xml` (scope test).
+`SensorServiceTest` (Mockito, sans base) — 7 tests : création, doublon, `sensorId` incohérent,
+inconnu (PUT), taille de page, **`PUT` avec `version` périmée → 409 `VERSION_CONFLICT`
+(version courante acceptée), `DuplicateKeyException` sur l'index unique → 409 `SENSOR_ALREADY_EXISTS`**.
+
+`SensorServiceIntegrationTest` (Testcontainers MongoDB `mongo:7`, `@SpringBootTest`) — 3 tests :
+création (201 + `Location`) puis lecture (dont filtre `building`), **métadonnées consultables avec
+Cassandra arrêté** (critère étape 6 : aucun conteneur Cassandra dans la suite et aucun driver
+`CqlSession` au classpath), **doublon → 409 `application/problem+json` + index `uk_sensorId`
+présent et insertion brute en double refusée par MongoDB**. L'index unique est créé
+programmatiquement (équivalent de `scripts/init-mongo.js`).
 
 ## Pièges
 - L'unicité repose sur l'**index** MongoDB (course entre deux créations) ; le contrôle `existsBySensorId` ne suffit pas seul — le rattrapage est le `catch (DuplicateKeyException)` → 409.

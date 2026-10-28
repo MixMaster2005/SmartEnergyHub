@@ -3,7 +3,7 @@
 <aside>
 📌
 
-**Statut** : v0.2 — 28/10/2026 — **MVP validé** (étapes 1 à 8 et 12 : 89 tests, recette `make e2e` 64/64, voir `docs/tests.md`) ; **extensions non démarrées** (section 18). **Source** : guide « Plateforme Big Data & IA pour la supervision énergétique distribuée » (Master 1 MSI, F. Razafindraibe).
+**Statut** : v0.2 — 28/10/2026 — **MVP validé** (étapes 1 à 8 et 12 : 94 tests, recette `make e2e` 64/64, voir `docs/tests.md`) ; **extensions non démarrées** (section 18). **Source** : guide « Plateforme Big Data & IA pour la supervision énergétique distribuée » (Master 1 MSI, F. Razafindraibe).
 
 **Objet** : décrire quoi construire (exigences), comment les services se parlent (contrats), où vivent les données (propriété par service) et pourquoi chaque choix a été fait (décisions / veille).
 

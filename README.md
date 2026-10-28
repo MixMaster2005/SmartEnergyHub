@@ -261,12 +261,15 @@ multi-nœuds réelle de Cassandra (CDC §1.3).
       forecast déclaré en 501, OpenAPI).
 - [x] Étape 12 (sécurité : limite 10 Ko sur `POST /api/measurements` → 413
       `application/problem+json`, `MEASUREMENT_MAX_BODY_BYTES`).
-- [x] Tests d'intégration des trois services (`CollectorIntegrationTest`,
-      `StorageIntegrationTest`, `AnalyticsIntegrationTest` — Testcontainers,
+- [x] Tests d'intégration des quatre services (`CollectorIntegrationTest`,
+      `StorageIntegrationTest`, `AnalyticsIntegrationTest`,
+      `SensorServiceIntegrationTest` — Testcontainers,
       scénarios 1–11 couverts) + recette de bout en bout automatisée
       (`make e2e` → `scripts/e2e.sh`) et mesures de performance
       (`scripts/perf.sh`).
-- [ ] Tests `sensor-service` restants (3 cas — `docs/TODO-MAP.md` partie A).
+- [x] Tests `sensor-service` restants (3 cas — `docs/TODO-MAP.md` partie A) :
+      version périmée → 409, `DuplicateKeyException` → 409, intégration
+      Testcontainers MongoDB (création/lecture + critère étape 6).
 
 ### Extensions (hors MVP) — rien de codé (CDC §18)
 
