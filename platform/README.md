@@ -15,4 +15,4 @@ Un service qui consomme le stream (`smartenergy.stream.group` défini) expose au
 
 `platform-stream` fournit les métriques de base de l'extension **`EXT-11`** (CDC §18.2) : elles sont
 déjà exposées en `/actuator/prometheus`, il manque Prometheus + Grafana. Renvois : CDC §18.2 ·
-`docs/TODO-MAP.md` partie B · README racine §8.2.
+`docs/TODO-MAP.md` partie B · README racine §10.2.

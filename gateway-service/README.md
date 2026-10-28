@@ -10,7 +10,7 @@ Point d'entrée unique en `:8080` (Spring Cloud Gateway) : routage, JWT, CORS, S
 | **Exigences** | CDC §7.6, D-16 (versioning d'URL), D-17 (routage du `daily-summary`) |
 | **Activation** | renommer les `.example`, ajouter le module au pom parent, profil Compose `gateway`, retrait des ports 8081–8084 |
 | **Critère** | les 5 routes répondent via `:8080` avec l'ordre respecté, Swagger agrégé, CORS + rate-limit |
-| **Renvois** | CDC §18.4 · `docs/TODO-MAP.md` partie B · README racine §8.2 · `docs/security.md` |
+| **Renvois** | CDC §18.4 · `docs/TODO-MAP.md` partie B · README racine §10.2 · `docs/security.md` |
 
 Fichiers fournis : `routes.yml.example` (table de routage) et `pom.xml.example` (squelette de dépendances).
 

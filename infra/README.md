@@ -43,4 +43,4 @@ Les opérations `reset` et `clean` suppriment les volumes et peuvent effacer les
 Les extensions du CDC §18 se déploieront par **profils Compose** supplémentaires (par exemple
 `--profile monitoring` pour `EXT-11` Prometheus/Grafana, profil `gateway` pour `EXT-GW`) sans
 modifier les commandes de cycle de vie ci-dessus. Renvois : CDC §18 · `docs/TODO-MAP.md` partie B ·
-README racine §8.2.
+README racine §10.2.

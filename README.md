@@ -3,11 +3,23 @@
 Plateforme distribuée de collecte, de stockage et d'analyse descriptive de mesures
 énergétiques. Voir le cahier des charges pour le périmètre complet — **MVP : `docs/cdc.md` ;
 extensions hors MVP : `docs/cdc.md` §18** (identifiants `EXT-9C`, `EXT-11`, `EXT-12`,
-`EXT-GW`, `EXT-B`, repris en §8.2 et §10 ci-dessous).
+`EXT-GW`, `EXT-B`, repris en §10.2 et §11 ci-dessous).
 
 **Chaîne** : Simulateur (Java) → Collector (Spring Boot) → Redis Streams →
 Storage (Spring Boot) → Cassandra ; Analytics/API (Spring Boot + Swagger) pour la
 consultation ; Sensor Service (Spring Boot) pour le référentiel des capteurs.
+
+## Quickstart
+
+```bash
+make up        # copie .env.example -> .env, build des images, démarrage
+# attendre healthy : redis, mongo, cassandra (~60-90 s) + cassandra-init
+make sim       # injecter des mesures (5 capteurs, 2 min)
+open http://localhost:8083/swagger-ui.html   # API ; santé : :8081 à :8084 /actuator/health
+```
+
+`make help` liste tous les raccourcis (§8). Détails (infra seule, run local, vérifications,
+arrêt) dans les sections 3 à 6 ; commandes de cycle de vie dans `./infra/` (§9).
 
 ## 1. Prérequis
 
@@ -53,6 +65,8 @@ cp .env.example .env          # si .env absent (make up le fait aussi)
 docker compose up -d --build
 docker compose ps
 ```
+
+Équivalent : `make up` (copie `.env`, build et démarrage en une commande).
 
 Attendre que `redis`, `mongo` et `cassandra` soient `healthy` (Cassandra ~60-90 s),
 puis que `cassandra-init` se termine (le schéma Cassandra est créé automatiquement).
@@ -142,8 +156,8 @@ Voir `docs/tests.md` pour la matrice de recette (scénarios 1–11) et
 ## 6. Arrêt
 
 ```bash
-docker compose down      # arrête tout (volumes conservés)
-docker compose down -v   # arrête ET supprime les volumes (re-joue les inits)
+docker compose down      # arrête tout (volumes conservés)  — équivalent : make down
+docker compose down -v   # arrête ET supprime les volumes (re-joue les inits) — make reset
 ```
 
 ## 7. Configuration
@@ -153,32 +167,26 @@ ports, paramètres du simulateur. Les services lisent des variables
 d'environnement (ENF-02) ; les valeurs par défaut des `application.yml`
 permettent un lancement local sans Docker. Aucun secret réel n'est commité.
 
-## 8. Périmètre
+## 8. Raccourcis Makefile
 
-### 8.1 Inclus (MVP)
+`make help` liste les cibles ; `make todo` liste les classes restant à implémenter.
 
-Simulateur Java, Collector, Redis Streams, Storage, Cassandra, Sensor Service, MongoDB,
-Analytics/API, OpenAPI (springdoc), Docker Compose, tests unitaires + tests d'intégration
-Testcontainers, recette de bout en bout (`make e2e`).
-
-### 8.2 Extensions (hors MVP) — par étape
-
-Squelettes et listes d'attente uniquement : **rien n'est codé**. Le détail complet (exigences,
-fichiers de départ, activation, critère de validation) vit dans **`docs/cdc.md` §18** ;
-l'avancement dans **`docs/TODO-MAP.md` partie B**.
-
-| ID | Étape du guide | Extension | État | Départs / documentation | Activation |
-|---|---|---|---|---|---|
-| `EXT-9C` | 9C (J8) | Prévision IA : baseline puis modèle ONNX | squelette livré, **non codé** — endpoint `/api/analytics/{id}/forecast` → 501 `FORECAST_DISABLED` | `analytics-service/.../forecast/ForecastService.java`, `ml/`, `models/` — `ml/README.md` | `ANALYTICS_FORECAST_ENABLED=true` + `smartenergy.analytics.forecast.model-path` |
-| `EXT-11` | 11 | Observabilité avancée : Prometheus + dashboard Grafana | aucun fichier (les endpoints `/actuator/prometheus` sont déjà exposés) | `docs/cdc.md` §18.2, `docs/security.md` | profil Compose de monitoring (à créer) |
-| `EXT-12` | 12 | Sécurité avancée : JWT, rôles `ADMIN`/`VIEWER`, clé d'API, HTTPS | aucun fichier (le volet MVP de l'étape 12 est livré) | `docs/cdc.md` §18.3, `docs/security.md` | Spring Security + variables d'environnement |
-| `EXT-GW` | 10 / 12 | API Gateway : routage, CORS, Swagger agrégé, rate-limit | scaffolding non codé (fichiers `.example`) | `gateway-service/README.md` | profil Compose `gateway` sur `:8080` |
-| `EXT-B` | bonus | Évolutivité : Kafka (D-03), Kubernetes, interface Web, alertes, OAuth2 | réflexion seulement | `docs/cdc.md` §18.5 | sur signaux (`energy_stream_lag`, besoins utilisateurs) |
-
-### 8.3 Hors périmètre (non prévu, même en extension)
-
-Multi-tenant, facturation, pilotage d'équipements (commande des capteurs), haute disponibilité
-multi-nœuds réelle de Cassandra (CDC §1.3).
+| Cible | Action |
+|---|---|
+| `make help` | Liste des commandes |
+| `make build` | Compile tout (contrats + services) avec Maven local |
+| `make up` | Démarre la plateforme (copie `.env` + build des images inclus) |
+| `make down` | Arrête la plateforme (volumes conservés) |
+| `make reset` | Arrête ET supprime les volumes (re-joue les scripts d'init) |
+| `make ps` | État des conteneurs |
+| `make logs` | Logs de tous les services (Ctrl+C pour quitter) |
+| `make sim` | Lance le simulateur (5 capteurs, 2 minutes par défaut) |
+| `make e2e` | Scénarios de recette HTTP (`scripts/e2e.sh`) |
+| `make perf` | Mesures de performance (`scripts/perf.sh`, plateforme up) |
+| `make todo` | Liste les classes restant à implémenter |
+| `make redis-cli` | Shell Redis |
+| `make mongosh` | Shell MongoDB (root) |
+| `make cqlsh` | Shell Cassandra |
 
 ## 9. Outils infra (cycle de vie)
 
@@ -203,7 +211,34 @@ infra\windows\se.cmd first-start
 
 Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 
-## 10. État d'avancement
+## 10. Périmètre
+
+### 10.1 Inclus (MVP)
+
+Simulateur Java, Collector, Redis Streams, Storage, Cassandra, Sensor Service, MongoDB,
+Analytics/API, OpenAPI (springdoc), Docker Compose, tests unitaires + tests d'intégration
+Testcontainers, recette de bout en bout (`make e2e`).
+
+### 10.2 Extensions (hors MVP) — par étape
+
+Squelettes et listes d'attente uniquement : **rien n'est codé**. Le détail complet (exigences,
+fichiers de départ, activation, critère de validation) vit dans **`docs/cdc.md` §18** ;
+l'avancement dans **`docs/TODO-MAP.md` partie B**.
+
+| ID | Étape du guide | Extension | État | Départs / documentation | Activation |
+|---|---|---|---|---|---|
+| `EXT-9C` | 9C (J8) | Prévision IA : baseline puis modèle ONNX | squelette livré, **non codé** — endpoint `/api/analytics/{id}/forecast` → 501 `FORECAST_DISABLED` | `analytics-service/.../forecast/ForecastService.java`, `ml/`, `models/` — `ml/README.md` | `ANALYTICS_FORECAST_ENABLED=true` + `smartenergy.analytics.forecast.model-path` |
+| `EXT-11` | 11 | Observabilité avancée : Prometheus + dashboard Grafana | aucun fichier (les endpoints `/actuator/prometheus` sont déjà exposés) | `docs/cdc.md` §18.2, `docs/security.md` | profil Compose de monitoring (à créer) |
+| `EXT-12` | 12 | Sécurité avancée : JWT, rôles `ADMIN`/`VIEWER`, clé d'API, HTTPS | aucun fichier (le volet MVP de l'étape 12 est livré) | `docs/cdc.md` §18.3, `docs/security.md` | Spring Security + variables d'environnement |
+| `EXT-GW` | 10 / 12 | API Gateway : routage, CORS, Swagger agrégé, rate-limit | scaffolding non codé (fichiers `.example`) | `gateway-service/README.md` | profil Compose `gateway` sur `:8080` |
+| `EXT-B` | bonus | Évolutivité : Kafka (D-03), Kubernetes, interface Web, alertes, OAuth2 | réflexion seulement | `docs/cdc.md` §18.5 | sur signaux (`energy_stream_lag`, besoins utilisateurs) |
+
+### 10.3 Hors périmètre (non prévu, même en extension)
+
+Multi-tenant, facturation, pilotage d'équipements (commande des capteurs), haute disponibilité
+multi-nœuds réelle de Cassandra (CDC §1.3).
+
+## 11. État d'avancement
 
 ### MVP
 

@@ -12,4 +12,4 @@ Dossier monte en lecture seule dans `analytics-service` (`/app/models`).
 
 Identifiant **`EXT-9C`** (etape 9C) : ce dossier est un livrable de l'extension de prevision IA —
 aucun modele n'existe encore (vide). Renvois : CDC section 18.1 · `docs/TODO-MAP.md` partie B ·
-`ml/README.md` · README racine section 8.2.
+`ml/README.md` · README racine section 10.2.

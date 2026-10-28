@@ -46,7 +46,7 @@ Recette de bout en bout : `make e2e` (scénarios 1–11 + 413, 64/64 OK — `doc
 ## B. Extensions (hors MVP) — par étape
 
 Chaque sous-section reprend le gabarit du CDC §18 : *État → Exigences → Fichiers → Activation → Critère → Renvois*.
-Les identifiants sont ceux du CDC §18 et du README racine §8.2.
+Les identifiants sont ceux du CDC §18 et du README racine §10.2.
 
 ### Étape 9C · EXT-9C — Prévision IA  _(plan : J8)_
 
@@ -61,7 +61,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §8.2.
 
 - **Activation** : `ANALYTICS_FORECAST_ENABLED=true` + `smartenergy.analytics.forecast.model-path`.
 - **Critère** : MAE/RMSE < baseline ; `GET /api/analytics/{id}/forecast` → 200 avec `points[]`.
-- **Renvois** : CDC §18.1 · `analytics-service/README.md` (§ Extension) · `ml/README.md` · `models/README.md` · README racine §8.2.
+- **Renvois** : CDC §18.1 · `analytics-service/README.md` (§ Extension) · `ml/README.md` · `models/README.md` · README racine §10.2.
 
 ### Étape 11 · EXT-11 — Observabilité avancée : Prometheus / Grafana
 
@@ -74,7 +74,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §8.2.
 
 - **Activation** : profil Compose (ex. `--profile monitoring`).
 - **Critère** : dashboard Grafana affichant ≥ 3 métriques de §9 ; les 4 `/actuator/prometheus` → 200.
-- **Renvois** : CDC §18.2 · `docs/security.md` · README racine §8.2.
+- **Renvois** : CDC §18.2 · `docs/security.md` · README racine §10.2.
 
 ### Étape 12 · EXT-12 — Sécurité avancée : JWT, rôles, clé d'API
 
@@ -101,7 +101,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §8.2.
 
 - **Activation** : profil Compose `gateway` ; couplage naturel avec EXT-12.
 - **Critère** : les 5 routes répondent via `:8080` avec l'ordre du tableau §7.6, Swagger agrégé.
-- **Renvois** : CDC §18.4 · `gateway-service/README.md` · README racine §8.2.
+- **Renvois** : CDC §18.4 · `gateway-service/README.md` · README racine §10.2.
 
 ### Bonus · EXT-B — Évolutivité et valorisation
 
@@ -111,7 +111,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §8.2.
 |---|---|
 | _(aucun fichier encore)_ | **[manuelles]** Kafka (D-03), Kubernetes, interface Web, alertes en « épisodes » (CDC §14), améliorations analytiques de §6.5 (recalcul nocturne, z-score horaire), OAuth2 |
 
-- **Renvois** : CDC §18.5 · `docs/decisions.md` · README racine §8.2.
+- **Renvois** : CDC §18.5 · `docs/decisions.md` · README racine §10.2.
 
 ---
 
@@ -122,4 +122,4 @@ produire (`ml/train_forecast.py`, `models/energy.onnx`) ; `EXT-GW` → 2 fichier
 finaliser ; `EXT-11`, `EXT-12`, `EXT-B` → aucun fichier, tâches manuelles à créer.
 
 **Règle d'alignement** : toute extension démarrée ou livré(e) met à jour, dans le même commit,
-`docs/cdc.md` §18, ce fichier, le README racine (§8.2 / §10) et le README du service concerné.
+`docs/cdc.md` §18, ce fichier, le README racine (§10.2 / §11) et le README du service concerné.

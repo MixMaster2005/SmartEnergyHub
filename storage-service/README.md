@@ -94,7 +94,7 @@ Gabarit du CDC §18 — **rien n'est codé**.
   (`energy_stream_pending{group}`, `energy_stream_lag{group}`, `energy_persist_duration_seconds`,
   `energy_persist_errors_total`). Il manque Prometheus, Grafana et les dashboards (côté infra).
   - Critère : ces métriques visibles dans Grafana (≥ 3 métriques CDC §9 en démo).
-  - Renvois : CDC §18.2 · `docs/TODO-MAP.md` partie B · README racine §8.2.
+  - Renvois : CDC §18.2 · `docs/TODO-MAP.md` partie B · README racine §10.2.
 - **`EXT-GW` — API Gateway (étapes 10/12)** — *scaffolding non codé* : les routes `GET /api/measurements/**`
   seront routées vers ce service via `:8080` (publication de `:8082` retirée).
   - Renvois : CDC §18.4 · `gateway-service/README.md`.

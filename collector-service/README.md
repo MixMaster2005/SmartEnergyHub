@@ -69,7 +69,7 @@ Gabarit du CDC §18 — **rien n'est codé**.
   (réponses 401/403 au format `application/problem+json` à ajouter au tableau ci-dessus).
   - Activation : Spring Security + variable d'environnement (secret hors Git).
   - Critère : mesure sans clé d'API refusée, `make e2e` adapté reste vert.
-  - Renvois : CDC §18.3 · `docs/TODO-MAP.md` partie B · `docs/security.md` · README racine §8.2.
+  - Renvois : CDC §18.3 · `docs/TODO-MAP.md` partie B · `docs/security.md` · README racine §10.2.
 - **`EXT-GW` — API Gateway (étapes 10/12)** — *scaffolding non codé* (`gateway-service/*.example`) :
   la route `POST /api/measurements` sera routée vers ce service via `:8080` (ordre du tableau CDC §7.6).
   - Renvois : CDC §18.4 · `gateway-service/README.md`.

@@ -53,7 +53,7 @@ Gabarit du CDC §18 — **rien n'est codé**.
   **`ADMIN`** (écriture) et **`VIEWER`** (lecture), idéalement vérifiés au niveau de la gateway.
   - Activation : Spring Security + JWT (variables d'environnement, secrets hors Git).
   - Critère : écriture sans token `ADMIN` → 401/403 `application/problem+json` ; lecture `GET /api/sensors` selon le rôle exigé.
-  - Renvois : CDC §18.3 · `docs/TODO-MAP.md` partie B · `docs/security.md` · README racine §8.2.
+  - Renvois : CDC §18.3 · `docs/TODO-MAP.md` partie B · `docs/security.md` · README racine §10.2.
 - **`EXT-GW` — API Gateway (étapes 10/12)** — *scaffolding non codé* : après activation, ce service
   n'est plus publié sur `:8084` mais atteint via `:8080` (attention à l'ordre des règles :
   `/api/sensors/*/daily-summary` → analytics **avant** `/api/sensors/**` → sensor, CDC §7.6).

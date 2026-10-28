@@ -52,5 +52,5 @@ gateway `EXT-GW`), OAuth2.
 
 **État** : aucun fichier, rien n'est codé. **Critère** : écriture des capteurs et collecte refusées
 sans jeton / clé (401 ou 403 en `application/problem+json`), `make e2e` adapté reste vert.
-**Renvois** : `docs/cdc.md` §18.3 · `docs/TODO-MAP.md` partie B · README racine §8.2 ·
+**Renvois** : `docs/cdc.md` §18.3 · `docs/TODO-MAP.md` partie B · README racine §10.2 ·
 README `collector-service` et `sensor-service`.

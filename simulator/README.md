@@ -33,4 +33,4 @@ Un 4xx est compté « rejeté » sans réessai ; un 503 ou une erreur réseau es
 Renvois : `EXT-9C` (CDC §18.1) — le simulateur sert à **générer l'historique d'entraînement**
 (`period-seconds` = 86400, durée multi-jours) ; `EXT-12` (CDC §18.3) — prévoir l'envoi d'une clé d'API
 si `POST /api/measurements` est protégé. Voir `docs/cdc.md` §18, `docs/TODO-MAP.md` partie B et
-README racine §8.2.
+README racine §10.2.

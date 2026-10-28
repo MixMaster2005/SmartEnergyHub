@@ -85,9 +85,9 @@ Gabarit du CDC §18 — **rien n'est codé** dans les deux extensions concernant
     sinon l'endpoint `/api/analytics/{id}/forecast` reste en **501 `FORECAST_DISABLED`** (comportement attendu).
   - Critère : MAE/RMSE du modèle ONNX **< baseline** (persistance, saisonnier naïf), réponse 200
     avec `points[]` et `metrics`.
-  - Renvois : CDC §18.1 · `docs/TODO-MAP.md` partie B · `ml/README.md` · `models/README.md` · README racine §8.2.
+  - Renvois : CDC §18.1 · `docs/TODO-MAP.md` partie B · `ml/README.md` · `models/README.md` · README racine §10.2.
 - **`EXT-11` — Observabilité avancée (étape 11)** — *aucun fichier*.
   Les métriques nécessaires au dashboard sont **déjà exposées** : `GET :8083/actuator/prometheus`
   (`energy_anomalies_detected_total{type}`, `energy_stream_lag{group}`, …). Il manque Prometheus,
   Grafana et les dashboards (à créer côté infra).
-  - Renvois : CDC §18.2 · `docs/TODO-MAP.md` partie B · README racine §8.2.
+  - Renvois : CDC §18.2 · `docs/TODO-MAP.md` partie B · README racine §10.2.

@@ -23,4 +23,4 @@ Ce dossier est la composante **entraînement** de l'extension ; la composante **
 
 - **Activation** : produire `../models/energy.onnx`, puis `ANALYTICS_FORECAST_ENABLED=true`.
 - **Critère** : MAE/RMSE du modèle < baseline (persistance, saisonnier naïf) ; inférence Java cohérente avec Python.
-- **Renvois** : CDC §18.1 · `docs/TODO-MAP.md` partie B · `analytics-service/README.md` · `models/README.md` · README racine §8.2.
+- **Renvois** : CDC §18.1 · `docs/TODO-MAP.md` partie B · `analytics-service/README.md` · `models/README.md` · README racine §10.2.

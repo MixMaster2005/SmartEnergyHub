@@ -665,7 +665,7 @@ Ces points reposent sur ma connaissance des technologies et **n'ont pas été v�
 
 # 18. Extensions hors MVP — par étape
 
-Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fait que le **détailler, étape du guide par étape du guide**. Chaque extension porte un identifiant `EXT-*` repris à l'identique dans `docs/TODO-MAP.md` (partie B), le README racine (§8.2 et §10) et les README de services (section `Extension (hors MVP)`).
+Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fait que le **détailler, étape du guide par étape du guide**. Chaque extension porte un identifiant `EXT-*` repris à l'identique dans `docs/TODO-MAP.md` (partie B), le README racine (§10.2 et §11) et les README de services (section `Extension (hors MVP)`).
 
 **Règle** : aucune extension n'est démarrée avant la validation du MVP (J7, §14). Rien n'est codé à ce jour ; les seules traces sont des squelettes de configuration explicitement marqués non codés.
 
@@ -687,7 +687,7 @@ Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fa
 - **Fichiers de départ** : aucun — à créer : service Compose `prometheus` + service Compose `grafana` (profil dédié), config Prometheus, provisioning des datasources et dashboards, restriction d'Actuator côté production (`docs/security.md`).
 - **Activation** : profil Compose dédié (par exemple `--profile monitoring`), déploiement hors MVP.
 - **Critère de validation** : dashboard Grafana affichant **au moins 3 métriques** de §9 en démo (par ex. `energy_measurements_received_total`, `energy_stream_lag{group}`, `energy_anomalies_detected_total{type}`) ; les 4 endpoints `/actuator/prometheus` répondent 200.
-- **Renvois** : §9, `docs/security.md` (« Actuator à restreindre derrière la gateway »), README racine §8.2.
+- **Renvois** : §9, `docs/security.md` (« Actuator à restreindre derrière la gateway »), README racine §10.2.
 
 ## 18.3 EXT-12 — Sécurité avancée : JWT, rôles, clé d'API (étape 12)
 
@@ -723,4 +723,4 @@ Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fa
 
 ---
 
-> **Mise à jour** : toute extension démarrée ou livrée doit mettre à jour — dans le même commit — cette section, `docs/TODO-MAP.md`, le README racine (§8.2 / §10) et le README du service concerné. C'est le contrat d'alignement des documents.
+> **Mise à jour** : toute extension démarrée ou livrée doit mettre à jour — dans le même commit — cette section, `docs/TODO-MAP.md`, le README racine (§10.2 / §11) et le README du service concerné. C'est le contrat d'alignement des documents.
