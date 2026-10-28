@@ -27,5 +27,7 @@ venv/
 *.onnx
 
 # Secrets locaux (ne jamais committer)
+# .env.example reste versionné : c'est le template sans valeurs réelles.
+.env
 .env.local
 *.pem
