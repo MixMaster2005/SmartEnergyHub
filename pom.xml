@@ -38,6 +38,7 @@
     <module>storage-service</module>
     <module>sensor-service</module>
     <module>analytics-service</module>
+    <module>gateway-service</module>
     <module>simulator</module>
   </modules>
 
@@ -81,6 +82,11 @@
       <dependency>
         <groupId>org.springdoc</groupId>
         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>${springdoc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
         <version>${springdoc.version}</version>
       </dependency>
       <dependency>

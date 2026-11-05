@@ -142,6 +142,32 @@ services:
     depends_on:
       mongo: { condition: service_healthy }
 
+  # ------------------------------------------------------------ passerelle (profil "gateway")
+  # Les ports 8081-8084 restent publies : la gateway est une porte d'entree
+  # supplementaire, pas un remplacement des acces directs (decision D-25).
+  gateway-service:
+    profiles: ["gateway"]
+    <<: *java-service
+    build:
+      context: .
+      args: { SERVICE: gateway-service }
+    environment:
+      <<: *java-env
+      COLLECTOR_URI: http://collector-service:8080
+      STORAGE_URI: http://storage-service:8080
+      ANALYTICS_URI: http://analytics-service:8080
+      SENSOR_URI: http://sensor-service:8080
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      SMARTENERGY_FRONTEND_DIR: /app/frontend
+    ports: ["8080:8080"]
+    volumes:
+      - ./frontend:/app/frontend:ro
+    depends_on:
+      collector-service: { condition: service_healthy }
+      storage-service: { condition: service_healthy }
+      analytics-service: { condition: service_healthy }
+      sensor-service: { condition: service_healthy }
+
   # ------------------------------------------------------------ outil (profil "tools")
   simulator:
     profiles: ["tools"]

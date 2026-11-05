@@ -3,7 +3,12 @@
 # Scenarios de recette HTTP (docs/tests.md) - plateforme dockerisee.
 # Utilisation : make up  puis  make e2e   (ou ./scripts/e2e.sh)
 #
-# Couverture : sante des services puis scenarios 1 a 11 du CDC.
+# Depuis EXT-GW, les routes metier passent par la gateway (:8080) : c'est elle
+# qui est verifiee. Les ports 8081-8084 restent publies (D-25) mais le script
+# ne les utilise pas par defaut ; les routes ops passent par /<service>/...
+# (prefixe retire par la gateway) pour les controles de readiness.
+#
+# Couverture : gateway puis sante des services, scenarios 1 a 11 du CDC.
 #   1  mesure valide -> 202 + evenement dans le stream
 #   2  champ manquant -> 400 application/problem+json, aucun evenement
 #   3  historique pagine + latest (etape 8)
@@ -22,10 +27,27 @@
 # ============================================================================
 set -uo pipefail
 
-COLLECTOR="${COLLECTOR_URL:-http://localhost:8081}"
-STORAGE="${STORAGE_URL:-http://localhost:8082}"
-ANALYTICS="${ANALYTICS_URL:-http://localhost:8083}"
-SENSOR="${SENSOR_URL:-http://localhost:8084}"
+# Sans ce profil, le "docker compose down/up" du scenario 7 ne relancerait pas
+# la gateway (et e2e ne testerait plus la bonne cible).
+export COMPOSE_PROFILES="${COMPOSE_PROFILES:-gateway}"
+
+# Routes metier : une seule origine, le routage est path-based.
+GATEWAY="${GATEWAY_URL:-http://localhost:8080}"
+COLLECTOR="${COLLECTOR_URL:-$GATEWAY}"
+STORAGE="${STORAGE_URL:-$GATEWAY}"
+ANALYTICS="${ANALYTICS_URL:-$GATEWAY}"
+SENSOR="${SENSOR_URL:-$GATEWAY}"
+
+# Routes ops : prefixe de service, retire par la gateway (StripPrefix).
+COLLECTOR_OPS="${COLLECTOR_OPS_URL:-$GATEWAY/collector}"
+STORAGE_OPS="${STORAGE_OPS_URL:-$GATEWAY/storage}"
+ANALYTICS_OPS="${ANALYTICS_OPS_URL:-$GATEWAY/analytics}"
+SENSOR_OPS="${SENSOR_OPS_URL:-$GATEWAY/sensor}"
+
+# Delais elargis (D-27) : un saut reseau supplementaire (gateway) et Cassandra
+# peuvent rallonger le demarrage ; surchargeables par l'environnement.
+READY_TIMEOUT="${READY_TIMEOUT:-600}"
+WAIT_TIMEOUT="${WAIT_TIMEOUT:-90}"
 
 PASS=0
 FAIL=0
@@ -78,6 +100,7 @@ payload() { # payload <sensorId> <timestamp ISO> <powerKw>
 ts_off() { date -u -d "@$(( $(date +%s) + $1 ))" +%Y-%m-%dT%H:%M:%SZ; }
 
 get_status() { curl -s -o /dev/null -w '%{http_code}' "$1"; }
+get_status_follow() { curl -sL -o /dev/null -w '%{http_code}' "$1"; }
 get_body() { curl -s "$1"; }
 
 post_status() { # post_status <url> <corps>
@@ -192,6 +215,7 @@ wait_for() { # wait_for <timeout_s> <commande...> (succes = code retour 0)
 
 # Predicats pour wait_for
 p_readiness() { [ "$(get_status "$1")" = "200" ]; }
+p_daily_summary() { [ "$(get_status "$GATEWAY/api/sensors/$1/daily-summary")" = "200" ]; }
 p_history_not_empty() {
   [ "$(jget "$(get_body "$STORAGE/api/measurements/$1?limit=100")" '1 if d.get("items") else 0')" = "1" ]
 }
@@ -240,18 +264,33 @@ ensure_sensor() { # ensure_sensor <sensorId> <corps JSON> -> code HTTP (201 ou 2
 }
 
 # ==========================================================================
-# Demarrage : les quatre services doivent repondre
+# Demarrage : la gateway puis les quatre services doivent repondre
 # ==========================================================================
-echo "== Attente des services (readiness)"
-for u in "$COLLECTOR" "$STORAGE" "$ANALYTICS" "$SENSOR"; do
-  wait_ready "$u/actuator/health/readiness" 420
+echo "== Attente de la gateway (readiness)"
+wait_ready "$GATEWAY/actuator/health/readiness" "$READY_TIMEOUT"
+check "readiness $GATEWAY" 200 "$(get_status "$GATEWAY/actuator/health/readiness")"
+
+echo "== Attente des services (readiness via la gateway)"
+for u in "$COLLECTOR_OPS" "$STORAGE_OPS" "$ANALYTICS_OPS" "$SENSOR_OPS"; do
+  wait_ready "$u/actuator/health/readiness" "$READY_TIMEOUT"
   check "readiness $u" 200 "$(get_status "$u/actuator/health/readiness")"
 done
 
-echo "== Sante des services"
-for u in "$COLLECTOR" "$STORAGE" "$ANALYTICS" "$SENSOR"; do
+echo "== Sante des services (via la gateway)"
+for u in "$COLLECTOR_OPS" "$STORAGE_OPS" "$ANALYTICS_OPS" "$SENSOR_OPS"; do
   check "GET $u/api/health" 200 "$(get_status "$u/api/health")"
 done
+
+# ==========================================================================
+echo "== Gateway : accueil, Swagger agrege, API docs, CORS"
+check "GET / (accueil frontend)" 200 "$(get_status "$GATEWAY/")"
+check "GET /swagger-ui.html" 200 "$(get_status_follow "$GATEWAY/swagger-ui.html")"
+for svc in collector storage analytics sensor; do
+  check "GET /v3/api-docs/$svc" 200 "$(get_status "$GATEWAY/v3/api-docs/$svc")"
+done
+CORS_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS "$GATEWAY/api/measurements" \
+  -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: POST')
+check "CORS preflight (OPTIONS /api/measurements)" 200 "$CORS_CODE"
 
 # ==========================================================================
 echo "== Scenario 1 : mesure valide -> 202 + evenement Redis"
@@ -292,7 +331,7 @@ check "XLEN inchange apres 413" 0 "$((AFTER - BEFORE))"
 
 # ==========================================================================
 echo "== Scenario 3 : historique d'un capteur (etape 8)"
-wait_for 45 p_history_not_empty SENSOR-001
+wait_for "$WAIT_TIMEOUT" p_history_not_empty SENSOR-001
 HIST=$(get_body "$STORAGE/api/measurements/SENSOR-001?limit=100")
 check "GET historique" 200 "$(get_status "$STORAGE/api/measurements/SENSOR-001?limit=100")"
 check "au moins 1 mesure dans l'historique" 1 \
@@ -300,6 +339,12 @@ check "au moins 1 mesure dans l'historique" 1 \
 check "GET latest" 200 "$(get_status "$STORAGE/api/measurements/SENSOR-001/latest")"
 check "plage invalide (limit=0) -> 400" 400 \
   "$(get_status "$STORAGE/api/measurements/SENSOR-001?limit=0")"
+
+# ==========================================================================
+echo "== Gateway : ordre D-17, daily-summary route vers analytics"
+wait_for "$WAIT_TIMEOUT" p_daily_summary SENSOR-001
+check "GET /api/sensors/SENSOR-001/daily-summary (D-17 -> analytics)" 200 \
+  "$(get_status "$GATEWAY/api/sensors/SENSOR-001/daily-summary")"
 
 # ==========================================================================
 echo "== Scenario 4 : pic x3 -> anomalie THRESHOLD"
@@ -313,7 +358,7 @@ for off in -140 -130 -120; do
 done
 check "pic 30 kW accepte" 202 "$(post_status "$COLLECTOR/api/measurements" \
   "$(payload SENSOR-003 "$(ts_off -110)" 30)")"
-wait_for 45 p_anomalies_ge SENSOR-003 THRESHOLD 1
+wait_for "$WAIT_TIMEOUT" p_anomalies_ge SENSOR-003 THRESHOLD 1
 check "anomalie THRESHOLD listee via /anomalies" 1 \
   "$([ "$(count_anomalies SENSOR-003 THRESHOLD)" -ge 1 ] 2>/dev/null && echo 1 || echo 0)"
 check "seuil applique = 10 kW (sensor-service)" 10.0 \
@@ -331,9 +376,9 @@ DUP_DAY=$(date -u -d "$DUP_TS" +%F)
 DUP_JSON=$(payload SENSOR-DUP "$DUP_TS" 5.5)
 check "1er envoi" 202 "$(post_status "$COLLECTOR/api/measurements" "$DUP_JSON")"
 check "2e envoi identique (doublon)" 202 "$(post_status "$COLLECTOR/api/measurements" "$DUP_JSON")"
-wait_for 45 p_cql_count_eq "sensor_id='SENSOR-DUP' AND day='$DUP_DAY'" 1
+wait_for "$WAIT_TIMEOUT" p_cql_count_eq "sensor_id='SENSOR-DUP' AND day='$DUP_DAY'" 1
 check "une seule ligne Cassandra" 1 "$(cql_count "sensor_id='SENSOR-DUP' AND day='$DUP_DAY'")"
-wait_for 45 p_summary_count SENSOR-DUP 1
+wait_for "$WAIT_TIMEOUT" p_summary_count SENSOR-DUP 1
 check "compteur analytics inchange (count=1)" 1 "$(summary_count SENSOR-DUP)"
 
 # ==========================================================================
@@ -341,12 +386,12 @@ echo "== Scenario 10 : message poison -> DLQ, le flux continue"
 DLQ_BEFORE=$(dlq_xlen)
 # Evenement illisible : champs obligatoires absents -> MalformedEventException
 redis_cli "XADD energy-measurements '*' sensorId POISON-001 state ENCORE" >/dev/null
-wait_for 30 p_dlq_grew "$DLQ_BEFORE"
+wait_for "$WAIT_TIMEOUT" p_dlq_grew "$DLQ_BEFORE"
 DLQ_AFTER=$(dlq_xlen)
 check_ge "evenement poison envoye en DLQ" 1 "$((DLQ_AFTER - DLQ_BEFORE))"
 check "mesure suivante acceptee (le flux continue)" 202 \
   "$(post_status "$COLLECTOR/api/measurements" "$(payload SENSOR-010 "$(ts_off -30)" 6.1)")"
-wait_for 45 p_cql_count_eq "sensor_id='SENSOR-010' AND day='$TODAY'" 1
+wait_for "$WAIT_TIMEOUT" p_cql_count_eq "sensor_id='SENSOR-010' AND day='$TODAY'" 1
 check "mesure suivante persistee en Cassandra" 1 "$(cql_count "sensor_id='SENSOR-010' AND day='$TODAY'")"
 
 # ==========================================================================
@@ -357,14 +402,14 @@ check "capteur SENSOR-011 (seuil 50 kW) en place" 1 \
   "$([ "$S11_CODE" = "201" ] || [ "$S11_CODE" = "200" ] && echo 1 || echo 0)"
 check "mesure 30 kW sous le seuil 50 kW" 202 \
   "$(post_status "$COLLECTOR/api/measurements" "$(payload SENSOR-011 "$(ts_off -90)" 30)")"
-wait_for 45 p_summary_count SENSOR-011 1
+wait_for "$WAIT_TIMEOUT" p_summary_count SENSOR-011 1
 check "aucune anomalie tant que sensor-service repond" 0 \
   "$(count_anomalies SENSOR-011 THRESHOLD)"
 stop_svc sensor-service
 redis_cli "DEL cache:sensor:SENSOR-011" >/dev/null   # TTL 60 s : on simule l'expiration
 check "mesure 30 kW apres coupure de sensor-service" 202 \
   "$(post_status "$COLLECTOR/api/measurements" "$(payload SENSOR-011 "$(ts_off -60)" 30)")"
-wait_for 60 p_anomalies_ge SENSOR-011 THRESHOLD 1
+wait_for "$WAIT_TIMEOUT" p_anomalies_ge SENSOR-011 THRESHOLD 1
 check "anomalie THRESHOLD detectee malgre la coupure" 1 \
   "$([ "$(count_anomalies SENSOR-011 THRESHOLD)" -ge 1 ] 2>/dev/null && echo 1 || echo 0)"
 check "seuil par defaut 10 kW applique" 10.0 \
@@ -372,8 +417,8 @@ check "seuil par defaut 10 kW applique" 10.0 \
 check "thresholdSource = DEFAULT" DEFAULT \
   "$(anomaly_first SENSOR-011 THRESHOLD 'a.get("thresholdSource")')"
 start_svc sensor-service
-wait_ready "$SENSOR/actuator/health/readiness" 120
-check "sensor-service de nouveau pret" 200 "$(get_status "$SENSOR/actuator/health/readiness")"
+wait_ready "$SENSOR_OPS/actuator/health/readiness" "$READY_TIMEOUT"
+check "sensor-service de nouveau pret" 200 "$(get_status "$SENSOR_OPS/actuator/health/readiness")"
 
 # ==========================================================================
 echo "== Scenario 5 : arret de storage-service -> messages conserves dans Redis"
@@ -386,17 +431,18 @@ done
 sleep 4
 LAG5=$(group_field storage-group lag)
 check_ge "lag storage-group en hausse (messages non lus)" "$N5" "$LAG5"
-check "storage-service hors service" 000 "$(get_status "$STORAGE/api/health")"
-wait_for 45 p_summary_count SENSOR-005 "$N5"
+check "storage-service hors service (503 de la gateway)" 503 \
+  "$(get_status "$STORAGE_OPS/api/health")"
+wait_for "$WAIT_TIMEOUT" p_summary_count SENSOR-005 "$N5"
 check "analytics continue de traiter (groupes independants)" "$N5" "$(summary_count SENSOR-005)"
 
 # ==========================================================================
 echo "== Scenario 6 : redemarrage de storage-service -> aucune mesure perdue"
 start_svc storage-service
-wait_ready "$STORAGE/actuator/health/readiness" 180
+wait_ready "$STORAGE_OPS/actuator/health/readiness" "$READY_TIMEOUT"
 check "storage-service pret apres redemarrage" 200 \
-  "$(get_status "$STORAGE/actuator/health/readiness")"
-wait_for 90 p_group_drained
+  "$(get_status "$STORAGE_OPS/actuator/health/readiness")"
+wait_for "$WAIT_TIMEOUT" p_group_drained
 check "lag storage-group revenu a 0" 0 "$(group_field storage-group lag)"
 check "pending storage-group revenu a 0" 0 "$(group_field storage-group pending)"
 check "comptage Cassandra = mesures acceptees ($N5)" "$N5" \
@@ -413,7 +459,7 @@ check "Retry-After: 5" 5 \
   "$(tr -d '\r' < "$HDRS" | awk 'tolower($1) == "retry-after:" {print $2}')"
 check "code BROKER_UNAVAILABLE" 1 "$(grep -c '"code":"BROKER_UNAVAILABLE"' "$BODY")"
 start_svc redis
-wait_for 60 p_redis_up
+wait_for "$WAIT_TIMEOUT" p_redis_up
 check "Redis de nouveau disponible" 1 "$(p_redis_up && echo 1 || echo 0)"
 # Les consumers retablissent leur groupe (retry toutes les 2 s) apres la panne
 sleep 15
@@ -427,8 +473,8 @@ docker compose down >/dev/null 2>&1
 echo "  [....] docker compose up -d"
 docker compose up -d >/dev/null 2>&1
 PLATFORM_DOWN=0
-for u in "$COLLECTOR" "$STORAGE" "$ANALYTICS" "$SENSOR"; do
-  wait_ready "$u/actuator/health/readiness" 420
+for u in "$COLLECTOR_OPS" "$STORAGE_OPS" "$ANALYTICS_OPS" "$SENSOR_OPS"; do
+  wait_ready "$u/actuator/health/readiness" "$READY_TIMEOUT"
   check "readiness apres redemarrage : $u" 200 "$(get_status "$u/actuator/health/readiness")"
 done
 check "mesures toujours presentes (comptage inchange)" "$COUNT_BEFORE" \

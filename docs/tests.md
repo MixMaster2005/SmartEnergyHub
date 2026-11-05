@@ -1,14 +1,28 @@
 # Preuves de tests (matrice de recette)
 
 Recette **entièrement automatisée** : `make e2e` (`scripts/e2e.sh`) exécute les scénarios 1 à 11
-du CDC **plus** le contrôle **413 au-delà de 10 Ko** (étape 12), sur la plateforme Docker réelle.
+du CDC, le contrôle **413 au-delà de 10 Ko** (étape 12) et **9 contrôles de la gateway**
+(`EXT-GW`) sur la plateforme Docker réelle. Les routes métier du script passent par `:8080`
+(D-25) ; les contrôles de readiness utilisent les préfixes ops `/collector|storage|analytics|sensor`
+(D-26). Les attentes sont élargies (`READY_TIMEOUT=600 s`, `WAIT_TIMEOUT=90 s`, D-27).
 Les tests d'intégration des quatre services (`mvn -B test`) couvrent les mêmes scénarios en
-Testcontainers. Campagne complète rapportée dans
-`preuves/tests/resultats-2026-10-28.md`.
+Testcontainers. Campagnes complètes : `preuves/tests/resultats-2026-10-28.md` (MVP, accès direct)
+et logs `/tmp/opencode/e2e-gateway-clean.log` + `/tmp/opencode/perf-gateway.log` (EXT-GW, via `:8080`).
 
 > **Numérotations** : cette matrice utilise les scénarios **1–11** (CDC) ; le gabarit de
 > preuves `preuves/tests/resultats-modele.md` utilise les labels **T01–T14** du guide.
 > Les deux référent le même recette.
+
+## Contrôles gateway (`EXT-GW`, 9 vérifications)
+
+| Contrôle | Attendu |
+|---|---|
+| `GET :8080/actuator/health/readiness` | 200 (la gateway est prête) |
+| `GET :8080/` | 200 — placeholder `frontend/index.html` |
+| `GET :8080/swagger-ui.html` (suivi de redirection) | 200 — Swagger agrégé |
+| `GET :8080/v3/api-docs/{collector,storage,analytics,sensor}` | 200 ×4 — agrégation des 4 APIs |
+| `OPTIONS :8080/api/measurements` avec `Origin` | 200 — préflight CORS |
+| `GET :8080/api/sensors/SENSOR-001/daily-summary` | 200 — ordre **D-17** (analytics, pas sensor-service) |
 
 ## Tests unitaires présents dans le dépôt (76 tests actifs)
 
@@ -42,10 +56,10 @@ Testcontainers. Campagne complète rapportée dans
 
 **Total : 76 + 18 = 94 tests** (`mvn -B test`).
 
-## Scénarios de recette — résultats (campagne du 2026-10-28, plateforme Docker réelle)
+## Scénarios de recette — résultats (campagne du 2026-11-05, plateforme Docker réelle, via la gateway)
 
-`scripts/e2e.sh` : **64 vérifications, 64 OK** (scénarios 1–11 + 413 étage 12), sur plateforme
-remise à plat (`docker compose down -v && up -d`). Logs : `/tmp/opencode/e2e-run2.log`.
+`scripts/e2e.sh` : **73 vérifications, 73 OK** (9 contrôles gateway + scénarios 1–11 + 413 étape 12), sur plateforme
+remise à plat (`docker compose down -v && make up`). Logs : `/tmp/opencode/e2e-gateway-clean.log`.
 
 | N° | Scénario | Résultat attendu | Preuve | Résultat obtenu |
 |---|---|---|---|---|
@@ -53,7 +67,7 @@ remise à plat (`docker compose down -v && up -d`). Logs : `/tmp/opencode/e2e-ru
 | 2 | Mesure sans `sensorId` | HTTP 400 Problem Details, aucune entrée | réponse + `XLEN` inchangé | **OK** — 400 `application/problem+json`, `code=VALIDATION_ERROR`, `XLEN` inchangé |
 | 3 | Historique d'un capteur | Liste ordonnée, paginée, bornée par `from`/`to` | appel API | **OK** — historique 200 avec mesures, `/latest` 200, `limit=0` → 400 `INVALID_PARAMETER` |
 | 4 | Injection d'un pic ×3 | Anomalie `THRESHOLD` listée | `/anomalies` | **OK** — anomalie listée, `thresholdKw=10.0`, `thresholdSource=SENSOR`, `severity=HIGH`, `powerKw=30.0` |
-| 5 | Arrêt de storage-service pendant l'envoi | Messages conservés dans Redis (pending/lag en hausse) | `XINFO GROUPS` + `/actuator/metrics/energy_stream_pending` | **OK** — lag `storage-group` ≥ 10 pendant l'arrêt, analytics continue de traiter (groupes indépendants) |
+| 5 | Arrêt de storage-service pendant l'envoi | Messages conservés dans Redis (pending/lag en hausse) | `XINFO GROUPS` + `/actuator/metrics/energy_stream_pending` | **OK** — lag `storage-group` ≥ 10 pendant l'arrêt, analytics continue de traiter (groupes indépendants) ; la gateway répond **503** `UPSTREAM_UNAVAILABLE` pour storage |
 | 6 | Redémarrage de storage-service | Reprise, aucune mesure perdue (comptage Cassandra = mesures acceptées) | comptage | **OK** — lag et pending revenus à 0, comptage Cassandra = 10 mesures acceptées, historique 200 |
 | 7 | Redémarrage complet de la plateforme | Données toujours présentes (volumes) | appels API | **OK** — readiness ×4 à 200, comptage inchangé, historique et summary analytics 200 après `down -v`→`up` |
 | 8 | Doublon | Une seule ligne Cassandra, compteur analytics inchangé | API + agrégat | **OK** — 2×202, **une seule** ligne Cassandra, `count` analytics inchangé = 1 |
@@ -61,17 +75,21 @@ remise à plat (`docker compose down -v && up -d`). Logs : `/tmp/opencode/e2e-ru
 | 10 | Message poison dans le stream | Envoyé en DLQ, le flux continue | `XLEN` de la DLQ | **OK** — DLQ ≥ 1, mesure suivante acceptée 202 **et** persistée en Cassandra |
 | 11 | sensor-service arrêté | Analytics traite avec le seuil par défaut | anomalie `thresholdSource = DEFAULT` | **OK** — anomalie détectée après coupure, `thresholdKw=10.0`, `thresholdSource=DEFAULT`, service restauré à 200 |
 | 12 | Corps > 10 Ko (étape 12) | 413 `PAYLOAD_TOO_LARGE` sans publication | réponse + `XLEN` | **OK** — 413 `application/problem+json`, `code=PAYLOAD_TOO_LARGE`, `XLEN` inchangé |
+| 13 | Gateway `EXT-GW` | Accueil, Swagger agrégé et CORS disponibles via `:8080` ; `daily-summary` routé vers analytics (D-17) | 9 contrôles `scripts/e2e.sh` | **OK** — readiness gateway, `GET /`, `swagger-ui.html`, 4 `/v3/api-docs/{service}`, préflight CORS, `daily-summary` 200 |
 
 ## Mesures de performance (étapes 5 et 11) — `scripts/perf.sh` / `make perf`
 
-Plateforme Docker réelle, mesures du 2026-10-28 (`/tmp/opencode/perf-final.log`).
-Amorçage : 1 100 mesures `SENSOR-PERF` persistées en Cassandra avant mesures.
+Campagne du 2026-11-05 **via la gateway** (`:8080`), plateforme Docker réelle
+(`/tmp/opencode/perf-gateway.log`). Amorçage : 1 100 mesures `SENSOR-PERF` persistées en Cassandra avant mesures.
 
 | Mesure | Méthode | Résultat | Commentaire |
 |---|---|---|---|
-| Lecture d'un jour d'historique (`limit` 1000) | 50 × `GET /api/measurements/SENSOR-PERF?limit=1000`, temps total par requête | **p95 47.3 ms, médiane 29.7 ms** | cible p95 < 300 ms — **PASS** |
-| Débit soutenu du collector | 1 000 POST **séquentiels sur une connexion keep-alive** (fichier de config curl, une seule connexion TCP réutilisée) | **300.5 mesures/s** (1 000 POST en 3.33 s) | cible ≥ 200 mesures/s — **PASS**. Sans réutilisation de connexion (1 processus curl par requête) le mesurage tombe à ~68/s : artefact de banc, pas de la plateforme. |
-| Retard de bout en bout (réception → Cassandra) | 30 essais : POST puis polling de `GET /api/measurements/{capteur}?limit=1` (lecture Cassandra directe, **hors cache `/latest` TTL 30 s**) jusqu'à apparition du timestamp posté ; capteur dédié `SENSOR-PERF-E2E`, timestamps uniques croissants (un `eventId` par essai) | **p95 163.0 ms, médiane 116.0 ms (30/30)** | cible p95 < 5 s — **PASS** |
+| Lecture d'un jour d'historique (`limit` 1000) | 50 × `GET /api/measurements/SENSOR-PERF?limit=1000`, temps total par requête | **p95 279.9 ms, médiane 71.1 ms** | cible p95 < 300 ms — **PASS** (marge réduite par le saut gateway) |
+| Débit soutenu du collector | 1 000 POST **séquentiels sur une connexion keep-alive** (fichier de config curl, une seule connexion TCP réutilisée) | **223.3 mesures/s** (1 000 POST en 4.48 s) | cible ≥ 200 mesures/s — **PASS** via gateway. Sans réutilisation de connexion (1 processus curl par requête) le mesurage tombe à ~68/s : artefact de banc, pas de la plateforme. |
+| Retard de bout en bout (réception → Cassandra) | 30 essais : POST puis polling de `GET /api/measurements/{capteur}?limit=1` (lecture Cassandra directe, **hors cache `/latest` TTL 30 s**) jusqu'à apparition du timestamp posté ; capteur dédié `SENSOR-PERF-E2E`, timestamps uniques croissants (un `eventId` par essai) | **p95 187.0 ms, médiane 132.0 ms (30/30)** | cible p95 < 5 s — **PASS** |
+
+> Campagne de référence du 2026-10-28 (accès direct aux ports 8081–8084) : P1 300.5/s,
+> P2 p95 47.3 ms, P3 p95 163.0 ms. Les deux configurations restent dans les cibles.
 
 ## Checklist avant remise
 
@@ -82,5 +100,10 @@ résultats analytiques vérifiables, scénarios de panne testés, secrets absent
 - Compilation : `mvn -B test` vert (94 tests) ; `docker compose build` sans erreur.
 - Requêtes invalides rejetées : scénarios 2, 413, tests d'intégration (400/413 `application/problem+json`).
 - Messages dans Redis / mesures dans Cassandra / agrégats MongoDB : scénarios 1, 3, 4, 8, 10, 11.
-- Scénarios de panne : 5, 6, 7, 9, 11 (tout OK).
-- Swagger : `/v3/api-docs` → 200 sur les 4 services.
+- Scénarios de panne : 5, 6, 7, 9, 11 (tout OK). Le scénario 5 attend désormais **503**
+  (réponse de la gateway quand storage-service est arrêté, D-25).
+- Swagger : `/v3/api-docs` → 200 sur les 4 services **et** agrégé sur
+  `http://localhost:8080/swagger-ui.html` (`/v3/api-docs/{collector|storage|analytics|sensor}` → 200).
+- Gateway : `make e2e` vérifie l'accueil, le CORS, les 4 documents OpenAPI et l'ordre D-17.
+- CI : le workflow `.github/workflows/ci.yml` rejoue `mvn -B -ntp test` **et** `make up` +
+  `./scripts/e2e.sh` sur chaque pull request vers `main` (voir README §5.1).

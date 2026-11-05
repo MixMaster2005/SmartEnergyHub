@@ -112,9 +112,9 @@ flowchart LR
 | storage-service | 8082 | Persister les mesures et servir l'historique | Cassandra : `measurements_by_sensor_day`, `latest_measurement_by_sensor` | consomme via `storage-group` |
 | analytics-service | 8083 | Agrégats, seuils, anomalies, prévision | Mongo `analytics_db` : `sensor_state`, `hourly_aggregates`, `daily_aggregates`, `anomalies`, `forecasts` | consomme via `analytics-group` ; appelle sensor-service (REST) |
 | sensor-service | 8084 | Registre des capteurs et seuils | Mongo `sensor_db` : `sensors` | serveur REST |
-| gateway-service | 8080 | Point d'entrée unique, JWT, Swagger agrégé | aucune | EXT |
+| gateway-service | 8080 | Point d'entrée unique, Swagger agrégé, CORS | aucune | EXT-GW (profil `gateway`) |
 
-Les ports 8081 à 8083 reprennent le docker-compose du guide ; 8084 et 8080 sont ajoutés. Dans les conteneurs, chaque service écoute sur 8080.
+Les ports 8081 à 8083 reprennent le docker-compose du guide ; 8084 et 8080 sont ajoutés. Dans les conteneurs, chaque service écoute sur 8080. Depuis D-25, la gateway est additive : les ports 8081–8084 restent publiés en développement.
 
 ---
 
@@ -145,6 +145,10 @@ Les ports 8081 à 8083 reprennent le docker-compose du guide ; 8084 et 8080 sont
 | D-21 | Fenêtres temporelles à l'ingestion : mesure ≤ 24 h, futur ≤ 5 min (bornes strictes, 1 ms de dépassement = 400) | Rejet de toute mesure non horodatée « maintenant » ; file de rattrapage pour les mesures > 24 h | 24 h = reprise d'un capteur après coupure réseau (mesures buffered exploitables) ; 5 min = tolérance de dérive d'horloge, au-delà l'ordre temporel n'est plus garanti. Paramétrable (`MEASUREMENT_MAX_AGE` / `MEASUREMENT_MAX_FUTURE`) |
 | D-22 | Reprise des messages inactifs par `XPENDING` (détail : compteur de livraisons, temps d'inactivité) + `XCLAIM`, équivalent d'`XAUTOCLAIM` | Commande brute `XAUTOCLAIM` via `redis.execute(...)` | Spring Data Redis 3.5.0 n'expose pas `XAUTOCLAIM` ; l'approche typée reste portable (Lettuce, Jedis) et ne requiert aucun parsing de réponse, au prix d'un aller-retour Redis supplémentaire par passe |
 | D-23 | Écriture Cassandra asynchrone : statements produits par Spring (`StatementFactory`), soumis au driver via `CqlSession.executeAsync`, lot attendu par `CompletableFuture.allOf().join()` | `CassandraTemplate.insert` synchrone (une écriture bloquante après l'autre) ; `CompletableFuture.supplyAsync` sur un pool de threads ; batch `LOGGED` couvrant les deux tables | Pipelining du driver sans thread bloquant ; le mapping Spring est réutilisé (colonnes null omises, D-10) ; la première erreur du lot est propagée → pas d'ACK → rejeu complet, sûr puisque le writer est idempotent |
+| D-24 | Métriques de stream (`energy_stream_pending` / `energy_stream_lag`) rafraîchies par une tâche planifiée (5 s), jamais dans le callback du `Gauge` | Calcul à chaque scrape Prometheus | Sinon chaque scrape provoquerait un aller-retour Redis ; une erreur Redis ne doit pas faire échouer un scrape (dernière valeur conservée) |
+| D-25 | API Gateway **additive** : profil Compose `gateway` sur `:8080` (5 routes métier dans l'ordre D-17, Swagger agrégé, CORS) ; les ports 8081–8084 **restent publiés** | Retirer les ports directs et imposer `:8080` ; ne pas livrer la gateway | Accès direct conservé pour l'IDE, les Swagger par service, le diagnostic et les scripts existants ; le profil permet d'activer la gateway sans imposer un saut réseau en développement |
+| D-26 | Routes **ops** uniformes `/collector/**`, `/storage/**`, `/analytics/**`, `/sensor/**` → service correspondant avec `StripPrefix=1` ; 4 routes `/v3/api-docs/{service}` pour l'agrégation | Ne router que `/api/**` (tableau §7.6) ; une route fourre-tout `/actuator/**` | Le CDC §7.6 ne couvre que `/api/**` : ces préfixes gardent readiness, `/api/health` et Actuator joignables sur l'origine unique sans route ambiguë. Écart assumé et documenté |
+| D-27 | Délais de recette élargis : `READY_TIMEOUT=600 s`, `WAIT_TIMEOUT=90 s` (surchargeables par l'environnement) | Conserver 420 s / 45 s | Le saut réseau supplémentaire (gateway) et le démarrage Cassandra peuvent allonger les attentes ; les attentes restent bornées et échouent toujours en cas de non-réponse |
 
 ---
 
@@ -457,8 +461,10 @@ Convention : `{usage}:{service}:{identifiant}`.
 
 ## 7.6 gateway-service (EXT-GW, §18.4)
 
-- Spring Cloud Gateway sur `:8080`. Routes : `POST /api/measurements` → collector ; `GET /api/measurements/**` → storage ; `/api/sensors/*/daily-summary` → analytics (règle placée **avant**) ; `/api/sensors/**` → sensor-service ; `/api/analytics/**` → analytics.
-- JWT (rôles `ADMIN` écriture capteurs, `VIEWER` lecture), CORS, Swagger agrégé, limitation de débit.
+- Spring Cloud Gateway sur `:8080`. Routes métier : `POST /api/measurements` → collector ; `GET /api/measurements/**` → storage ; `/api/sensors/*/daily-summary` → analytics (règle placée **avant**) ; `/api/sensors/**` → sensor-service ; `/api/analytics/**` → analytics.
+- Routes d'exploitation (extension D-26) : `/collector/**`, `/storage/**`, `/analytics/**`, `/sensor/**` → service correspondant avec retrait du préfixe (readiness, `/api/health`, Actuator) ; `/v3/api-docs/{collector|storage|analytics|sensor}` pour le Swagger agrégé.
+- CORS, Swagger agrégé, accueil `GET /`. JWT (rôles `ADMIN` écriture capteurs, `VIEWER` lecture) et limitation de débit restent dans l'extension `EXT-12`.
+- La gateway est **additive** (D-25) : les ports 8081–8084 restent publiés pour l'accès direct en développement.
 
 ---
 
@@ -667,7 +673,7 @@ Ces points reposent sur ma connaissance des technologies et **n'ont pas été v�
 
 Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fait que le **détailler, étape du guide par étape du guide**. Chaque extension porte un identifiant `EXT-*` repris à l'identique dans `docs/TODO-MAP.md` (partie B), le README racine (§10.2 et §11) et les README de services (section `Extension (hors MVP)`).
 
-**Règle** : aucune extension n'est démarrée avant la validation du MVP (J7, §14). Rien n'est codé à ce jour ; les seules traces sont des squelettes de configuration explicitement marqués non codés.
+**Règle** : aucune extension n'est démarrée avant la validation du MVP (J7, §14). À ce jour, `EXT-GW` est la seule extension livrée ; les autres restent des squelettes ou des tâches à créer, explicitement marqués non codés.
 
 **Gabarit commun** (les 5 sous-sections suivent ce même ordre) : *État → Exigences → Fichiers de départ → Activation → Critère de validation → Renvois*.
 
@@ -700,12 +706,12 @@ Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fa
 
 ## 18.4 EXT-GW — API Gateway (étapes 10 / 12)
 
-- **État** : *scaffolding livré, non codé* : `gateway-service/pom.xml.example` et `gateway-service/routes.yml.example` uniquement ; module absent du pom parent, absent du Compose.
-- **Exigences** : §7.6 ; D-16 (le versioning d'URL peut être ajouté par la gateway) ; D-17 (routage du `daily-summary` vers analytics).
-- **Fichiers de départ** : `gateway-service/README.md` (pas-à-pas), `routes.yml.example`, `pom.xml.example`.
-- **Activation** : renommer les deux `.example`, ajouter le module au pom parent, service Compose avec profil `gateway` sur `:8080`, retirer la publication des ports 8081–8084.
-- **Critère de validation** : les 5 routes de la table §7.6 répondent via `:8080` avec l'**ordre** respecté (`/api/sensors/*/daily-summary` avant `/api/sensors/**`), Swagger agrégé accessible, CORS et limitation de débit actifs ; couplage naturel avec EXT-12 (JWT vérifié au niveau de la gateway).
-- **Renvois** : §3 (catalogue), §7.6, D-16, D-17, `gateway-service/README.md`, `docs/security.md`.
+- **État** : *livré* (D-25 à D-27) — module `gateway-service` compilé, profil Compose `gateway` sur `:8080`, 5 routes métier (ordre D-17), 4 routes ops et 4 routes `/v3/api-docs/{service}`, Swagger agrégé, CORS, accueil `GET /`. Les ports 8081–8084 restent publiés (gateway additive).
+- **Exigences** : §7.6 ; D-16 (le versioning d'URL peut être ajouté par la gateway) ; D-17 (routage du `daily-summary` vers analytics) ; D-25 à D-27.
+- **Fichiers** : `gateway-service/` (`pom.xml`, `GatewayApplication`, `UpstreamUnavailableFilter`, `application.yml`, `static/index.html`), `frontend/index.html`, service Compose `gateway-service` (profil `gateway`), `scripts/e2e.sh` / `scripts/perf.sh`.
+- **Activation** : `make up` (profil `gateway` explicite) ou `docker compose --profile gateway up -d --build` ; `COMPOSE_PROFILES=gateway` dans `.env` pour les commandes CLI nues. Arrêt : `make down`.
+- **Critère de validation** : les 5 routes de la table §7.6 répondent via `:8080` avec l'**ordre** respecté (`/api/sensors/*/daily-summary` avant `/api/sensors/**`), Swagger agrégé accessible (`/swagger-ui.html` + les 4 `/v3/api-docs/{service}`), accueil et CORS actifs. **Couverture** : `make e2e` (73 vérifications, dont 9 contrôles gateway). JWT/rôles et limitation de débit restent dans `EXT-12`.
+- **Renvois** : §3 (catalogue), §7.6, D-16, D-17, D-25 à D-27, `gateway-service/README.md`, `docs/security.md`, `docs/tests.md`.
 
 ## 18.5 EXT-B — Évolutivité et valorisation (hors étapes du guide)
 

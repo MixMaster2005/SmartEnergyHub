@@ -6,9 +6,9 @@ help: ## Liste des commandes
 build: ## Compile tout (contrats + services) avec Maven local
 	mvn -B -q clean package -DskipTests
 
-up: ## Demarre la plateforme (build des images inclus)
+up: ## Demarre la plateforme + gateway (build des images inclus)
 	@test -f .env || cp .env.example .env
-	docker compose up -d --build
+	docker compose --profile gateway up -d --build
 
 down: ## Arrete la plateforme (les volumes sont conserves)
 	docker compose down
