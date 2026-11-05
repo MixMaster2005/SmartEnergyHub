@@ -7,7 +7,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -19,11 +18,6 @@ class MeasurementMetricsFilterTest {
 
     private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private final MeasurementMetricsFilter filter = new MeasurementMetricsFilter(registry);
-
-    @BeforeEach
-    void vider() {
-        registry.clear();
-    }
 
     private static FilterChain statut(int code) {
         return (request, response) -> ((MockHttpServletResponse) response).setStatus(code);
@@ -84,11 +78,20 @@ class MeasurementMetricsFilterTest {
     }
 
     @Test
+    void initialisation_preeEnregistreLesDeuxSeriesAZero() {
+        assertThat(compteur(MeasurementMetricsFilter.ACCEPTED)).isZero();
+        assertThat(compteur(MeasurementMetricsFilter.REJECTED)).isZero();
+        assertThat(registry.find(MeasurementMetricsFilter.RECEIVED_COUNTER).counters())
+                .hasSize(2);
+    }
+
+    @Test
     void autreMethodeOuAutreChemin_ignore() throws Exception {
         executer("GET", CHEMIN, statut(200));
         executer("POST", "/api/analytics/autre", statut(202));
 
-        assertThat(registry.find(MeasurementMetricsFilter.RECEIVED_COUNTER).counters()).isEmpty();
+        assertThat(compteur(MeasurementMetricsFilter.ACCEPTED)).isZero();
+        assertThat(compteur(MeasurementMetricsFilter.REJECTED)).isZero();
     }
 
     @Test

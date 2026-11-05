@@ -37,6 +37,11 @@ public class MeasurementMetricsFilter extends OncePerRequestFilter {
 
     public MeasurementMetricsFilter(MeterRegistry registry) {
         this.registry = registry;
+        // Pre-enregistre les deux series : sans cela, /actuator/metrics renvoie 404
+        // pour `result=rejected` tant qu'aucun rejet n'a eu lieu, et un tableau de
+        // bord ne peut pas distinguer « zero rejet » de « metrique absente ».
+        registry.counter(RECEIVED_COUNTER, RESULT_TAG, ACCEPTED);
+        registry.counter(RECEIVED_COUNTER, RESULT_TAG, REJECTED);
     }
 
     @Override
