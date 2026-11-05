@@ -18,9 +18,12 @@
 # ============================================================================
 set -uo pipefail
 
-COLLECTOR="${COLLECTOR_URL:-http://localhost:8081}"
-STORAGE="${STORAGE_URL:-http://localhost:8082}"
-SENSOR="${SENSOR_URL:-http://localhost:8084}"
+# Depuis EXT-GW, les mesures passent par la gateway (:8080) comme dans e2e.
+GATEWAY="${GATEWAY_URL:-http://localhost:8080}"
+# Les trois routes historiques passent elles aussi par la gateway.
+COLLECTOR="${COLLECTOR_URL:-$GATEWAY}"
+STORAGE="${STORAGE_URL:-$GATEWAY}"
+SENSOR="${SENSOR_URL:-$GATEWAY}"
 
 NOW=$(date -u +%s)
 

@@ -18,7 +18,7 @@
 | Élément | Exposition | Décision |
 |---|---|---|
 | Ports Redis / MongoDB / Cassandra | publiés **uniquement** par `docker-compose.override.yml` (développement) | non exposés en production |
-| Actuator | `health`, `info`, `metrics`, `prometheus` | à restreindre derrière la gateway en production |
+| Actuator | `health`, `info`, `metrics`, `prometheus` | accessible aussi derrière la gateway (`/collector/**`, `/storage/**`, `/analytics/**`, `/sensor/**`, D-26) ; en production, restreindre les ports directs (retirer `ports:` ou filtrer au pare-feu) et/ou exiger l'authentification `EXT-12` |
 | `POST /api/measurements` | public | à protéger par clé d'API ou JWT (extension `EXT-12`, CDC §18.3) |
 | `POST/PUT/DELETE /api/sensors` | public | réservé au rôle ADMIN (extension `EXT-12`, CDC §18.3) |
 
@@ -35,6 +35,12 @@
   `super.handleExceptionInternal` (sinon `type` restait `about:blank` et `code`/`traceId`
   absents) — preuve : `GlobalExceptionHandlerTest`.
 - Conteneurs applicatifs : utilisateur non root.
+- **Actuator derrière la gateway (EXT-GW, livré)** : la gateway expose des routes
+  d'exploitation uniformes `/collector/**`, `/storage/**`, `/analytics/**`, `/sensor/**`
+  (préfixe retiré) vers readiness, `/api/health` et Actuator. C'est le **mécanisme**
+  prévu par la note ; il ne restreint pas à lui seul les accès directs. En production,
+  supprimer la publication des ports 8081–8084 (ou la filtrer) et activer `EXT-12`
+  pour l'authentification. En développement, les ports restent publiés (D-25).
 - **Limitation de taille du corps HTTP (étape 12, livrée)** : `POST /api/measurements` borné à
   **10 Ko** par `BodySizeLimitFilter` → 413 `PAYLOAD_TOO_LARGE` en `application/problem+json`.
   Deux cas couverts : `Content-Length` annoncé (le filtre écrit la réponse lui-même, le filtre

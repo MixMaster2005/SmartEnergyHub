@@ -93,16 +93,21 @@ Les identifiants sont ceux du CDC §18 et du README racine §10.2.
 
 ### Étapes 10/12 · EXT-GW — API Gateway
 
-- **État** : scaffolding livré (`.example` uniquement), non codé.
-- **Exigences** : CDC §7.6, D-16, D-17.
+- **État** : **livré** (D-25 à D-27), couvert par `make e2e`.
+- **Exigences** : CDC §7.6, D-16, D-17, D-25 à D-27.
 
-| Fichier | À faire |
+| Fichier | État |
 |---|---|
-| `gateway-service/pom.xml.example` | **[manuelles]** renommer en `pom.xml`, version de Spring Cloud compatible, module ajouté au pom parent |
-| `gateway-service/routes.yml.example` | **[manuelles]** recopier dans `application.yml` (ordre des règles respecté), service Compose profil `gateway` sur `:8080`, retrait des ports 8081–8084 |
+| `gateway-service/pom.xml` | livré — Spring Cloud `2025.0.0` (Gateway 4.3.0), module ajouté au pom parent |
+| `gateway-service/src/main/resources/application.yml` | livré — 5 routes métier ordonnées, 4 routes ops (D-26), 4 routes `/v3/api-docs`, CORS, actuator |
+| `gateway-service/src/main/java/.../GatewayApplication.java` | livré |
+| `gateway-service/src/main/resources/static/index.html` + `frontend/index.html` | livré — accueil placeholder |
+| `docker-compose.yml` | livré — service `gateway-service`, profil `gateway`, `:8080` ; **ports 8081–8084 conservés** (D-25) |
+| `scripts/e2e.sh` / `scripts/perf.sh` | livré — routes via `:8080`, 9 contrôles gateway, délais élargis (D-27) |
 
-- **Activation** : profil Compose `gateway` ; couplage naturel avec EXT-12.
-- **Critère** : les 5 routes répondent via `:8080` avec l'ordre du tableau §7.6, Swagger agrégé.
+- **Activation** : profil Compose `gateway` (`make up`) ; couplage naturel avec `EXT-12`.
+- **Critère** : les 5 routes répondent via `:8080` avec l'ordre du tableau §7.6,
+  Swagger agrégé (`/swagger-ui.html` + 4 `/v3/api-docs/{service}`), accueil et CORS.
 - **Renvois** : CDC §18.4 · `gateway-service/README.md` · README racine §10.2.
 
 ### Bonus · EXT-B — Évolutivité et valorisation
@@ -119,9 +124,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §10.2.
 
 **Total général** :
 **A (MVP)** : **terminé** — 0 test en attente (les 3 tests `sensor-service` sont livrés).
-**B (extensions)** : `EXT-9C` → 1 fichier de code à décommenter (`ForecastService`) + 2 fichiers à
-produire (`ml/train_forecast.py`, `models/energy.onnx`) ; `EXT-GW` → 2 fichiers `.example` à
-finaliser ; `EXT-11`, `EXT-12`, `EXT-B` → aucun fichier, tâches manuelles à créer.
+**B (extensions)** : `EXT-GW` → **livré** (module, Compose, recette) ; `EXT-9C` → 1 fichier de code à décommenter (`ForecastService`) + 2 fichiers à produire (`ml/train_forecast.py`, `models/energy.onnx`) ; `EXT-11`, `EXT-12`, `EXT-B` → aucun fichier, tâches manuelles à créer.
 
 **Règle d'alignement** : toute extension démarrée ou livré(e) met à jour, dans le même commit,
 `docs/cdc.md` §18, ce fichier, le README racine (§10.2 / §11) et le README du service concerné.

@@ -1,0 +1,96 @@
+name: CI
+
+# Validation des pull requests : compilation + tests, puis recette de bout en
+# bout sur une plateforme Compose réelle (gateway incluse).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Une nouvelle poussée sur la même PR annule l'exécution précédente.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Compilation et tests (Maven + Testcontainers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Afficher les versions
+        run: |
+          java -version
+          mvn -version
+          docker version
+
+      - name: Compiler et exécuter les tests
+        run: mvn -B -ntp test
+
+      - name: Publier les rapports Surefire
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/**'
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e:
+    name: Recette de bout en bout (Compose + gateway)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: build-test
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Préparer la configuration
+        run: cp .env.example .env
+
+      - name: Valider Compose et les scripts
+        run: |
+          docker compose --profile gateway config --quiet
+          bash -n scripts/e2e.sh
+          bash -n scripts/perf.sh
+
+      - name: Démarrer la plateforme
+        run: make up
+
+      - name: Attendre la gateway
+        run: |
+          for _ in $(seq 1 120); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              http://localhost:8080/actuator/health/readiness || true)
+            [ "$code" = "200" ] && exit 0
+            sleep 2
+          done
+          echo "Gateway non prête après 240 s" >&2
+          docker compose --profile gateway ps
+          exit 1
+
+      - name: Exécuter la recette HTTP
+        run: ./scripts/e2e.sh
+
+      - name: Logs des conteneurs en cas d'échec
+        if: failure()
+        run: docker compose --profile gateway logs --tail=250
+
+      - name: Arrêt et nettoyage
+        if: always()
+        run: docker compose --profile gateway down -v --remove-orphans
