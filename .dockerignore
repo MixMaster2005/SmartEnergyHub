@@ -1,0 +1,13 @@
+# Contexte de build Docker commun a tous les services.
+# Sans ce fichier, les `target/` de l'hote entrent dans le contexte : Maven peut
+# alors reutiliser des classes plus recentes que les sources copiees et produire
+# un jar different de la source (constat sur MeasurementMetricsFilter).
+
+.git
+.gitignore
+**/target/
+**/node_modules/
+*.log
+.env
+.env.local
+preuves/

@@ -51,6 +51,23 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  frontend-test:
+    name: Tests unitaires de l'interface EXT-UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Exécuter les tests (node --test)
+        working-directory: frontend
+        run: npm test
+
   e2e:
     name: Recette de bout en bout (Compose + gateway)
     runs-on: ubuntu-latest

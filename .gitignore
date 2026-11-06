@@ -23,6 +23,10 @@ venv/
 # Docker / données locales
 *.log
 
+# Dépendances frontend / captures (les sources et lockfiles restent versionnés)
+frontend/node_modules/
+tools/capture/node_modules/
+
 # Modèles IA (légers ; versionner explicitement avec git add -f si nécessaire)
 *.onnx
 
