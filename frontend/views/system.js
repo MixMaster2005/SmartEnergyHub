@@ -74,7 +74,7 @@ function createLineChart(canvas, series) {
         y: {
           beginAtZero: true,
           grid: { color: '#eef2f7' },
-          ticks: { callback: (value) => formatNumber(value, 0) },
+          ticks: { callback: (value) => formatNumber(value, Number.isInteger(value) ? 0 : 1) },
           title: { display: true, text: 'valeur' },
         },
       },
@@ -239,7 +239,7 @@ export async function render({ mount, signal }) {
         <td>${error ? badge('indisponible', 'danger') : badge('ok', 'ok')}</td>
       </tr>`;
     });
-    nodes.table.innerHTML = `<table>
+    nodes.table.innerHTML = `<table class="table--metrics">
       <thead><tr><th>Métrique</th><th>Tag</th><th class="num">Valeur</th><th>État</th></tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>`;
