@@ -426,10 +426,15 @@ check "sensor-service de nouveau pret" 200 "$(get_status "$SENSOR_OPS/actuator/h
 # ==========================================================================
 echo "== Scenario 5 : arret de storage-service -> messages conserves dans Redis"
 N5=10
+# Horodatages figes : `ts_off` relit l'horloge a chaque appel, donc des offsets
+# decroissants dans une boucle peuvent produire le meme timestamp (et le meme
+# eventId) si une iteration franchit une seconde -> un doublon avale par la dedup.
+BASE5=$(date +%s)
 stop_svc storage-service
 sleep 2
 for i in $(seq 1 "$N5"); do
-  post_status "$COLLECTOR/api/measurements" "$(payload SENSOR-005 "$(ts_off -$((400 + i)))" 4.2)" >/dev/null
+  TS5=$(date -u -d "@$((BASE5 - 400 - i))" +%Y-%m-%dT%H:%M:%SZ)
+  post_status "$COLLECTOR/api/measurements" "$(payload SENSOR-005 "$TS5" 4.2)" >/dev/null
 done
 sleep 4
 LAG5=$(group_field storage-group lag)
