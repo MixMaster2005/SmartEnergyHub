@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "anomalyId": "0f0f2f2e-1111-4a4a-8a8a-000000000001",
+      "sensorId": "SENSOR-001",
+      "timestamp": "2026-11-05T09:15:00Z",
+      "type": "THRESHOLD",
+      "severity": "HIGH",
+      "powerKw": 30.0,
+      "thresholdKw": 10.0,
+      "thresholdSource": "SENSOR",
+      "zScore": null,
+      "eventId": "c922db67-6dc0-5cc8-bd86-af282a1f36b7"
+    },
+    {
+      "anomalyId": "0f0f2f2e-1111-4a4a-8a8a-000000000002",
+      "sensorId": "SENSOR-001",
+      "timestamp": "2026-11-05T09:20:00Z",
+      "type": "ZSCORE",
+      "severity": "MEDIUM",
+      "powerKw": 4.5,
+      "thresholdKw": 10.0,
+      "thresholdSource": "DEFAULT",
+      "zScore": 3.4,
+      "eventId": "d0d0d0d0-2222-4a4a-8a8a-000000000002"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 2
+}

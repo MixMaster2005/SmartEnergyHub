@@ -1,0 +1,10 @@
+{
+  "name": "energy_persist_duration",
+  "description": "Duree de persistance d'une mesure",
+  "measurements": [
+    { "statistic": "COUNT", "value": 100.0 },
+    { "statistic": "TOTAL_TIME", "value": 2.5 },
+    { "statistic": "MAX", "value": 0.12 }
+  ],
+  "availableTags": []
+}
