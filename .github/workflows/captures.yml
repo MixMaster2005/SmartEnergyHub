@@ -1,0 +1,82 @@
+name: Captures EXT-UI
+
+# Job manuel uniquement : il démarre la plateforme complète, installe Chromium
+# et publie les captures des six vues. Les preuves versionnées restent dans
+# `preuves/captures/ext-ui/` ; ce workflow sert à les régénérer.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: URL de la gateway
+        required: false
+        default: http://localhost:8080
+
+permissions:
+  contents: read
+
+concurrency:
+  group: captures-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  captures:
+    name: Captures Playwright et rapport
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Préparer la configuration
+        run: cp .env.example .env
+
+      - name: Démarrer la plateforme
+        run: make up
+
+      - name: Attendre la gateway
+        run: |
+          for _ in $(seq 1 120); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              http://localhost:8080/actuator/health/readiness || true)
+            [ "$code" = "200" ] && exit 0
+            sleep 2
+          done
+          echo "Gateway non prête après 240 s" >&2
+          docker compose --profile gateway ps
+          exit 1
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Tests unitaires de l'interface
+        working-directory: frontend
+        run: npm test
+
+      - name: Installer Playwright et Chromium
+        working-directory: tools/capture
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Capturer les vues
+        working-directory: tools/capture
+        run: node capture.mjs --base-url="${{ inputs.base_url }}"
+
+      - name: Publier les captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures-ext-ui
+          path: preuves/captures/ext-ui/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Logs des conteneurs en cas d'échec
+        if: failure()
+        run: docker compose --profile gateway logs --tail=250
+
+      - name: Arrêt et nettoyage
+        if: always()
+        run: docker compose --profile gateway down -v --remove-orphans

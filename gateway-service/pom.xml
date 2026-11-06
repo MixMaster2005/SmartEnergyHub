@@ -60,6 +60,25 @@
 
   <build>
     <finalName>app</finalName>
+    <!-- Source unique de l'interface : `frontend/` est copie dans le classpath
+         (`static/`) pour que `java -jar gateway-service/target/app.jar` serve la
+         meme UI que le volume Compose `./frontend:/app/frontend:ro`. -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/../frontend</directory>
+        <targetPath>static</targetPath>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>tests/**</exclude>
+          <exclude>node_modules/**</exclude>
+          <exclude>README.md</exclude>
+          <exclude>package.json</exclude>
+        </excludes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>

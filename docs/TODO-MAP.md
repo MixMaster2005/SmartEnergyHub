@@ -4,7 +4,7 @@ Deux parties, dans l'ordre d'exécution :
 
 - **A. MVP** : ce qui reste à coder ou à écrire pour finir le périmètre obligatoire.
 - **B. Extensions (hors MVP)** : une sous-section par identifiant d'extension, calée sur le CDC §18
-  (`EXT-9C`, `EXT-11`, `EXT-12`, `EXT-GW`, `EXT-B`). **Ne pas commencer avant la validation du MVP (J7).**
+  (`EXT-9C`, `EXT-11`, `EXT-12`, `EXT-GW`, `EXT-UI`, `EXT-B`). **Ne pas commencer avant la validation du MVP (J7).**
 
 Les lignes marquées **[TODO code]** proviennent des en-têtes `TODO(...)` du code
 (`make todo` donne la même liste en ligne de commande) : chaque fichier contient le guide/CDC de
@@ -41,7 +41,7 @@ Tests d'intégration **livrés** (Testcontainers, exécutés à chaque `mvn test
 `AnalyticsIntegrationTest` (4 tests, scénarios 4, 8, 11, avec faux sensor-service HTTP),
 `SensorServiceIntegrationTest` (3 tests, critère étape 6 — création/lecture, lecture sans
 Cassandra, doublon → 409).
-Recette de bout en bout : `make e2e` (scénarios 1–11 + 413, 64/64 OK — `docs/tests.md`).
+Recette de bout en bout : `make e2e` (scénarios 1–11 + 413 + contrôles EXT-GW/EXT-UI, 81/81 OK — `docs/tests.md`).
 
 ---
 
@@ -101,14 +101,38 @@ Les identifiants sont ceux du CDC §18 et du README racine §10.2.
 | `gateway-service/pom.xml` | livré — Spring Cloud `2025.0.0` (Gateway 4.3.0), module ajouté au pom parent |
 | `gateway-service/src/main/resources/application.yml` | livré — 5 routes métier ordonnées, 4 routes ops (D-26), 4 routes `/v3/api-docs`, CORS, actuator |
 | `gateway-service/src/main/java/.../GatewayApplication.java` | livré |
-| `gateway-service/src/main/resources/static/index.html` + `frontend/index.html` | livré — accueil placeholder |
+| `frontend/` + `gateway-service/pom.xml` | livré — l'accueil est l'interface EXT-UI ; le build copie `frontend/` dans `classpath:/static/` (D-29) |
 | `docker-compose.yml` | livré — service `gateway-service`, profil `gateway`, `:8080` ; **ports 8081–8084 conservés** (D-25) |
-| `scripts/e2e.sh` / `scripts/perf.sh` | livré — routes via `:8080`, 9 contrôles gateway, délais élargis (D-27) |
+| `scripts/e2e.sh` / `scripts/perf.sh` | livré — routes via `:8080`, contrôles gateway et interface, délais élargis (D-27) |
 
 - **Activation** : profil Compose `gateway` (`make up`) ; couplage naturel avec `EXT-12`.
 - **Critère** : les 5 routes répondent via `:8080` avec l'ordre du tableau §7.6,
   Swagger agrégé (`/swagger-ui.html` + 4 `/v3/api-docs/{service}`), accueil et CORS.
 - **Renvois** : CDC §18.4 · `gateway-service/README.md` · README racine §10.2.
+
+### Étapes 10/12 · EXT-UI — Interface Web de consultation
+
+- **État** : **livré** (D-28 à D-33), couvert par `make ui-test`, `make captures` et le contrôle EXT-UI de `make e2e`.
+- **Exigences** : CDC §5.4, §9, §18.6 ; D-28 à D-33.
+
+| Fichier | État |
+|---|---|
+| `frontend/index.html` | livré — coquille, navigation, en-tête de santé |
+| `frontend/app.js` | livré — routeur par hash, poller de santé, erreurs globales |
+| `frontend/api.js` | livré — client HTTP relatif à l'origine, tags Actuator, POST de mesure |
+| `frontend/router.js` / `poller.js` / `ui.js` | livré — routage, sondage sans chevauchement, composants et notifications |
+| `frontend/errors.js` / `format.js` / `metrics.js` / `ranges.js` / `report.js` | livré — décodage Problem Details, formatage UTC, débits et tampons, plages, rapport T01–T14 |
+| `frontend/views/*.js` | livré — dashboard, capteurs (liste + fiche + Chart.js), analyses, système, scénarios |
+| `frontend/styles.css` | livré — thème clair, responsive, états vides et erreurs |
+| `frontend/vendor/chart.umd.js` + `CHART-LICENSE.md` | livré — Chart.js 4.4.7 vendorisé (MIT) |
+| `frontend/tests/*.test.js` + `fixtures/` | livré — 84 tests `node --test` sur les réponses réelles |
+| `gateway-service/pom.xml` | livré — copie de `../frontend` dans `classpath:/static/` |
+| `tools/capture/capture.mjs` + `package.json` | livré — Playwright 1.64.1, 6 captures, rapport JSON, sortie non nulle en cas d'échec |
+| `scripts/e2e.sh` | livré — contrôle EXT-UI (HTML, JS, CSS, Chart.js, métriques `accepted`/`rejected`) |
+
+- **Activation** : `make up` puis `http://localhost:8080/` ; tests `make ui-test` ; captures `make captures` ; CI `frontend-test` (+ job manuel `captures-ui`).
+- **Critère** : 6 vues sans exception JS ni `.empty--error` sur la plateforme réelle ; 84 tests Node verts ; `capture-report.json` à `ok: true` ; contrôle EXT-UI vert.
+- **Renvois** : CDC §18.6 · `frontend/README.md` · `tools/capture/README.md` · `docs/tests.md`.
 
 ### Bonus · EXT-B — Évolutivité et valorisation
 
@@ -116,7 +140,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §10.2.
 
 | Fichier | À faire |
 |---|---|
-| _(aucun fichier encore)_ | **[manuelles]** Kafka (D-03), Kubernetes, interface Web, alertes en « épisodes » (CDC §14), améliorations analytiques de §6.5 (recalcul nocturne, z-score horaire), OAuth2 |
+| _(aucun fichier encore)_ | **[manuelles]** Kafka (D-03), Kubernetes, alertes en « épisodes » (CDC §14), améliorations analytiques de §6.5 (recalcul nocturne, z-score horaire), OAuth2 — l'interface Web est désormais livrée par EXT-UI |
 
 - **Renvois** : CDC §18.5 · `docs/decisions.md` · README racine §10.2.
 
@@ -124,7 +148,7 @@ Les identifiants sont ceux du CDC §18 et du README racine §10.2.
 
 **Total général** :
 **A (MVP)** : **terminé** — 0 test en attente (les 3 tests `sensor-service` sont livrés).
-**B (extensions)** : `EXT-GW` → **livré** (module, Compose, recette) ; `EXT-9C` → 1 fichier de code à décommenter (`ForecastService`) + 2 fichiers à produire (`ml/train_forecast.py`, `models/energy.onnx`) ; `EXT-11`, `EXT-12`, `EXT-B` → aucun fichier, tâches manuelles à créer.
+**B (extensions)** : `EXT-GW` et `EXT-UI` → **livrés** (module, Compose, recette, tests, captures) ; `EXT-9C` → 1 fichier de code à décommenter (`ForecastService`) + 2 fichiers à produire (`ml/train_forecast.py`, `models/energy.onnx`) ; `EXT-11`, `EXT-12`, `EXT-B` → aucun fichier, tâches manuelles à créer.
 
 **Règle d'alignement** : toute extension démarrée ou livré(e) met à jour, dans le même commit,
 `docs/cdc.md` §18, ce fichier, le README racine (§10.2 / §11) et le README du service concerné.

@@ -1,0 +1,15 @@
+{
+  "name": "smartenergy-hub-capture",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Captures Playwright des vues EXT-UI et verification des erreurs JavaScript",
+  "scripts": {
+    "capture": "node capture.mjs",
+    "capture:chrome": "node capture.mjs --channel=chrome",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

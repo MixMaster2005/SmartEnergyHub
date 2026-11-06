@@ -1,0 +1,9 @@
+{
+  "name": "energy_stream_lag",
+  "description": "Messages non lus par groupe de consommateurs",
+  "baseUnit": "messages",
+  "measurements": [{ "statistic": "VALUE", "value": 3.0 }],
+  "availableTags": [
+    { "tag": "group", "values": ["storage-group", "analytics-group"] }
+  ]
+}

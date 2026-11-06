@@ -171,10 +171,13 @@ public class AnalyticsQueryService {
             if (from != null && to != null && !from.isBefore(to)) {
                 throw new ApiException(ErrorCode.INVALID_PARAMETER, "'to' doit etre posterieur a 'from'");
             }
-            if (from != null) {
+            if (from != null && to != null) {
+                // Un seul critere `timestamp` : deux appels `and("timestamp")` produisent un
+                // Document avec deux cles identiques, refuse par le driver MongoDB.
+                criteria = criteria.and("timestamp").gte(from).lte(to);
+            } else if (from != null) {
                 criteria = criteria.and("timestamp").gte(from);
-            }
-            if (to != null) {
+            } else if (to != null) {
                 criteria = criteria.and("timestamp").lte(to);
             }
         }

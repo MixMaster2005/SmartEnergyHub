@@ -1,0 +1,8 @@
+{
+  "name": "energy_measurements_received_total",
+  "description": "Mesures recues, acceptees ou rejetees",
+  "measurements": [{ "statistic": "COUNT", "value": 12.0 }],
+  "availableTags": [
+    { "tag": "result", "values": ["accepted", "rejected"] }
+  ]
+}

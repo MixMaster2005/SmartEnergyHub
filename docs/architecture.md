@@ -12,6 +12,27 @@
 5. analytics appelle sensor-service (`GET /api/sensors/{id}`, cache Redis 60 s, circuit breaker) pour connaître le seuil d'un capteur ;
    repli : seuil par défaut.
 
+## Interface Web (EXT-UI)
+
+L'interface est une application **statique** servie par la gateway sur `:8080` ; elle ne
+possède aucune donnée et n'ouvre aucune connexion directe aux bases.
+
+- **Fichiers** : `frontend/` (source unique) est monté dans le conteneur gateway
+  (`./frontend:/app/frontend:ro`) et copié dans `classpath:/static/` au build du jar
+  (D-29), ce qui rend la passerelle autonome.
+- **Routage** : par hash (`#/sensors/SENSOR-001`, D-30). Le serveur ne voit que `/` :
+  aucun fallback SPA ni 404 au rafraîchissement.
+- **Lecture** : toutes les URL sont relatives à l'origine de la page, donc sans CORS.
+  Chaque vue interroge uniquement les routes publiques §5.4 et les routes ops
+  `/collector|storage|analytics|sensor/**` (D-26) pour la santé et les métriques.
+- **Écriture** : une seule exception, la page Scénarios, qui publie des mesures de
+  recette sur le capteur réservé `UI-TEST-001` (jamais les capteurs du simulateur).
+- **Sondage** : 5 s pour les vues temps réel, 10 s pour la santé d'en-tête ; pause quand
+  l'onglet est caché, backoff borné en cas d'erreur, un seul appel à la fois.
+- **Graphiques** : Chart.js 4.4.7 vendorisé (MIT), aucun CDN.
+- **Preuves** : `tools/capture/capture.mjs` (Playwright) vérifie les 6 vues et produit
+  `preuves/captures/ext-ui/` (PNG + `capture-report.json`).
+
 ## Propriété des données
 
 | Service | Données |

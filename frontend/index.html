@@ -3,20 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SmartEnergy Hub</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 4rem auto; padding: 0 1rem; color: #1c2430; }
-    code { background: #eef1f5; padding: .15rem .35rem; border-radius: .25rem; }
-    a { color: #0b6bcb; }
-  </style>
+  <meta name="description" content="Interface Web de consultation SmartEnergy Hub : santé, capteurs, analyses, métriques et scénarios de recette.">
+  <title>SmartEnergy Hub — Interface de consultation</title>
+  <link rel="stylesheet" href="/styles.css">
+  <!-- Chart.js 4.4.7 vendorisé (MIT) : aucun appel réseau externe. -->
+  <script src="/vendor/chart.umd.js"></script>
 </head>
 <body>
-  <h1>SmartEnergy Hub</h1>
-  <p>Placeholder d'accueil : l'interface de consultation sera livrée avec l'intégration
-     frontend (extension <code>EXT-B</code>). La passerelle API est déjà active.</p>
-  <ul>
-    <li><a href="/swagger-ui.html">Swagger agrégé</a> (4 services)</li>
-    <li><a href="/actuator/health">Santé de la passerelle</a></li>
-  </ul>
+  <a class="skip-link" href="#app">Aller au contenu</a>
+
+  <header class="topbar">
+    <a class="brand" href="#/dashboard" aria-label="SmartEnergy Hub, tableau de bord">
+      <span class="brand__mark" aria-hidden="true">⚡</span>
+      <span class="brand__text">
+        <strong>SmartEnergy Hub</strong>
+        <small>Interface de consultation · EXT-UI</small>
+      </span>
+    </a>
+
+    <nav class="nav" aria-label="Navigation principale">
+      <a href="#/dashboard" data-nav="/dashboard">Tableau de bord</a>
+      <a href="#/sensors" data-nav="/sensors">Capteurs</a>
+      <a href="#/analytics" data-nav="/analytics">Analyses</a>
+      <a href="#/system" data-nav="/system">Système</a>
+      <a href="#/scenarios" data-nav="/scenarios">Scénarios</a>
+    </nav>
+
+    <div class="topbar__meta">
+      <span id="gateway-status" class="badge badge--neutral" title="Santé de la gateway">gateway : …</span>
+      <span id="last-refresh" class="muted">—</span>
+    </div>
+  </header>
+
+  <main id="app" class="app" tabindex="-1">
+    <div class="loading"><span class="spinner"></span> Chargement de l'interface…</div>
+  </main>
+
+  <footer class="footer">
+    <span>Données lues via la gateway <code>:8080</code> · heures affichées en UTC.</span>
+    <span class="footer__links">
+      <a href="/swagger-ui.html" target="_blank" rel="noreferrer">Swagger agrégé</a>
+      <a href="/collector/actuator/prometheus" target="_blank" rel="noreferrer">Prometheus collector</a>
+      <a href="/actuator/health" target="_blank" rel="noreferrer">Santé gateway</a>
+    </span>
+  </footer>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

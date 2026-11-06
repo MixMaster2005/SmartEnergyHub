@@ -1,4 +1,4 @@
-.PHONY: help build up down reset logs ps sim e2e perf todo redis-cli mongosh cqlsh
+.PHONY: help build up down reset logs ps sim e2e ui-test captures perf todo redis-cli mongosh cqlsh
 
 help: ## Liste des commandes
 	@grep -E '^[a-z-]+:.*##' Makefile | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -27,6 +27,12 @@ sim: ## Lance le simulateur (5 capteurs, 2 minutes par defaut)
 
 e2e: ## Scenarios de recette HTTP (scripts/e2e.sh)
 	./scripts/e2e.sh
+
+ui-test: ## Tests unitaires de l'interface EXT-UI (node --test)
+	cd frontend && npm test
+
+captures: ## Captures Playwright des vues EXT-UI (plateforme up, voir tools/capture/README.md)
+	cd tools/capture && node capture.mjs
 
 perf: ## Mesures de performance (scripts/perf.sh, plateforme up)
 	./scripts/perf.sh

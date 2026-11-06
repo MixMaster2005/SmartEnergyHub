@@ -1,0 +1,10 @@
+{
+  "name": "smartenergy-hub-frontend",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Interface Web de consultation SmartEnergy Hub (EXT-UI), sans etape de build",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
