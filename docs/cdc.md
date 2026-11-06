@@ -3,7 +3,7 @@
 <aside>
 📌
 
-**Statut** : v0.2 — 28/10/2026 — **MVP validé** (étapes 1 à 8 et 12 : 94 tests, recette `make e2e` 64/64, voir `docs/tests.md`) ; **extensions non démarrées** (section 18). **Source** : guide « Plateforme Big Data & IA pour la supervision énergétique distribuée » (Master 1 MSI, F. Razafindraibe).
+**Statut** : v0.3 — 06/11/2026 — **MVP validé** (étapes 1 à 8 et 12) ; **`EXT-GW` et `EXT-UI` livrées** (section 18), les autres extensions ne sont pas démarrées. Preuves : 102 tests Java, 84 tests Node et recette `make e2e` (voir `docs/tests.md`). **Source** : guide « Plateforme Big Data & IA pour la supervision énergétique distribuée » (Master 1 MSI, F. Razafindraibe).
 
 **Objet** : décrire quoi construire (exigences), comment les services se parlent (contrats), où vivent les données (propriété par service) et pourquoi chaque choix a été fait (décisions / veille).
 
@@ -566,7 +566,7 @@ cassandra-init:
 - **Unitaires** : validation DTO, calcul d'énergie, seuil, score z, conversions DTO ↔ entités.
 - **Intégration (Testcontainers)** : API → Redis ; Redis → storage ; storage → Cassandra ; analytics → Mongo ; lecture via API.
 - **Contrat** : l'événement publié par le collector est validé contre `contracts/schemas/energy-measurement-event.schema.json` (prouvé par `CollectorIntegrationTest`) ; chaque route est documentée en OpenAPI générée par **springdoc** et servie par les 4 services (`/v3/api-docs` → 200, Swagger UI). Les fichiers `contracts/*.openapi.yaml` restent **prévus mais non livrés** : les JSON Schemas de `contracts/schemas/` font foi à ce jour.
-- **Bout en bout** : script `scripts/e2e.sh` (`make e2e`) rejouant les scénarios ci-dessous contre le Compose — livré : 64 vérifications, 64 OK (campagne du 28/10/2026, `docs/tests.md`).
+- **Bout en bout** : script `scripts/e2e.sh` (`make e2e`) rejouant les scénarios ci-dessous contre le Compose — livré : 81 vérifications, 81 OK (campagne du 06/11/2026, `docs/tests.md`).
 
 ## 12.2 Matrice de recette (reprend le tableau du guide et l'étend)
 
@@ -674,7 +674,7 @@ Ces points reposent sur ma connaissance des technologies et **n'ont pas été v�
 
 Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fait que le **détailler, étape du guide par étape du guide**. Chaque extension porte un identifiant `EXT-*` repris à l'identique dans `docs/TODO-MAP.md` (partie B), le README racine (§10.2 et §11) et les README de services (section `Extension (hors MVP)`).
 
-**Règle** : aucune extension n'est démarrée avant la validation du MVP (J7, §14). À ce jour, `EXT-GW` est la seule extension livrée ; les autres restent des squelettes ou des tâches à créer, explicitement marqués non codés.
+**Règle** : aucune extension n'est démarrée avant la validation du MVP (J7, §14). À ce jour, `EXT-GW` et `EXT-UI` sont livrées ; les autres restent des squelettes ou des tâches à créer, explicitement marqués non codés.
 
 **Gabarit commun** (les 5 sous-sections suivent ce même ordre) : *État → Exigences → Fichiers de départ → Activation → Critère de validation → Renvois*.
 
@@ -709,9 +709,9 @@ Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fa
 
 - **État** : *livré* (D-25 à D-27) — module `gateway-service` compilé, profil Compose `gateway` sur `:8080`, 5 routes métier (ordre D-17), 4 routes ops et 4 routes `/v3/api-docs/{service}`, Swagger agrégé, CORS, accueil `GET /`. Les ports 8081–8084 restent publiés (gateway additive).
 - **Exigences** : §7.6 ; D-16 (le versioning d'URL peut être ajouté par la gateway) ; D-17 (routage du `daily-summary` vers analytics) ; D-25 à D-27.
-- **Fichiers** : `gateway-service/` (`pom.xml`, `GatewayApplication`, `UpstreamUnavailableFilter`, `application.yml`, `static/index.html`), `frontend/index.html`, service Compose `gateway-service` (profil `gateway`), `scripts/e2e.sh` / `scripts/perf.sh`.
+- **Fichiers** : `gateway-service/` (`pom.xml`, `GatewayApplication`, `UpstreamUnavailableFilter`, `application.yml`), `frontend/` (interface EXT-UI servie par la gateway, D-29), service Compose `gateway-service` (profil `gateway`), `scripts/e2e.sh` / `scripts/perf.sh`.
 - **Activation** : `make up` (profil `gateway` explicite) ou `docker compose --profile gateway up -d --build` ; `COMPOSE_PROFILES=gateway` dans `.env` pour les commandes CLI nues. Arrêt : `make down`.
-- **Critère de validation** : les 5 routes de la table §7.6 répondent via `:8080` avec l'**ordre** respecté (`/api/sensors/*/daily-summary` avant `/api/sensors/**`), Swagger agrégé accessible (`/swagger-ui.html` + les 4 `/v3/api-docs/{service}`), accueil et CORS actifs. **Couverture** : `make e2e` (73 vérifications, dont 9 contrôles gateway). JWT/rôles et limitation de débit restent dans `EXT-12`.
+- **Critère de validation** : les 5 routes de la table §7.6 répondent via `:8080` avec l'**ordre** respecté (`/api/sensors/*/daily-summary` avant `/api/sensors/**`), Swagger agrégé accessible (`/swagger-ui.html` + les 4 `/v3/api-docs/{service}`), accueil (EXT-UI) et CORS actifs. **Couverture** : `make e2e` (vérifications détaillées dans `docs/tests.md`). JWT/rôles et limitation de débit restent dans `EXT-12`.
 - **Renvois** : §3 (catalogue), §7.6, D-16, D-17, D-25 à D-27, `gateway-service/README.md`, `docs/security.md`, `docs/tests.md`.
 
 ## 18.5 EXT-B — Évolutivité et valorisation (hors étapes du guide)
@@ -720,13 +720,22 @@ Le périmètre des extensions est fixé par la section 1.3 ; cette section ne fa
 - **Contenu** :
   - **Kafka** en remplacement de Redis Streams (D-03) : le contrat d'événement reste identique (`schemaVersion`) ;
   - **Kubernetes** : descripteurs à écrire après stabilisation du Compose ;
-  - **Interface Web** de consultation (dashboard hors Grafana) ;
+  - **Interface Web** de consultation : **livrée par EXT-UI (§18.6)** ; restent les alertes et les synthèses avancées ;
   - **Alertes automatiques** sur anomalies, avec regroupement en « épisodes » (limite §14) ;
   - **Améliorations analytiques** documentées comme limites en §6.5 : recalcul nocturne de l'énergie depuis Cassandra, variante du score z par tranche horaire ;
   - **OAuth2** et authentification applicative (voir §10 et EXT-12).
 - **Déclencheurs** : `energy_stream_lag` proche de la moitié de `MAXLEN` (→ Kafka), besoin de multi-nœuds (→ K8s), demande utilisateur d'alertes ou de synthèse visuelle.
 - **Critère de validation** : aucun changement de contrat cassant (compatibilité `measurement-contracts/COMPATIBILITY.md`) ; chaque extension ajoutée est répercutée dans §18, la TODO-MAP et le README racine.
 - **Renvois** : §1.3, §6.5, §10, §13 (J8), §14, `docs/decisions.md` (D-03).
+
+## 18.6 EXT-UI — Interface Web de consultation
+
+- **État** : *livré* (D-28 à D-33). Application statique en modules ES, servie par la gateway sur `:8080`, sans étape de build ni CDN. Six vues : tableau de bord (santé, capteurs, flux), liste et fiche capteur (courbe Chart.js, anomalies, mesure courante), analyses (résumé horaire, résumé quotidien, anomalies, prévision 501), système (lag, débits, latence, tableau des métriques) et scénarios (T01–T14 + manipulations guidées + export du rapport). Chart.js 4.4.7 est vendorisé (`frontend/vendor/`, licence MIT).
+- **Exigences** : EF-14 (visualisation) ; §5.4 (lecture seule) ; §9 (métriques exposées) ; D-28 à D-33. L'interface n'écrit que dans le capteur de recette `UI-TEST-001` (page Scénarios), jamais dans les capteurs du simulateur.
+- **Fichiers de départ** : `frontend/` (`index.html`, `styles.css`, `app.js`, `api.js`, `errors.js`, `format.js`, `metrics.js`, `ranges.js`, `poller.js`, `router.js`, `ui.js`, `report.js`, `views/*.js`, `tests/`, `vendor/`), `gateway-service/pom.xml` (copie de `frontend/` dans le classpath `static/`), `tools/capture/` (Playwright 1.64.1, `capture.mjs`), `scripts/e2e.sh` (contrôle EXT-UI).
+- **Activation** : `make up` ; l'interface est disponible sur `http://localhost:8080/` (volume Compose `./frontend:/app/frontend:ro`, avec repli sur le classpath `static/` du jar). Tests : `make ui-test` (84 tests Node) ; captures : `make captures` (plateforme up) ; job CI `captures-ui` déclenché manuellement.
+- **Critère de validation** : les six vues se chargent sans exception JavaScript et sans état `.empty--error` sur la plateforme réelle ; `make ui-test` vert ; `make captures` produit 6 PNG et un `capture-report.json` à `ok: true` dans `preuves/captures/ext-ui/` ; `make e2e` vérifie que `/`, `/app.js`, `/styles.css`, `/vendor/chart.umd.js` et les deux tags de `energy_measurements_received_total` répondent 200 via la gateway.
+- **Renvois** : §5.4, §9, §18.4, D-28 à D-33, `frontend/README.md`, `tools/capture/README.md`, `docs/tests.md`, `docs/security.md`.
 
 ---
 

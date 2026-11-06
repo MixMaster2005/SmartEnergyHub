@@ -18,7 +18,8 @@
 | Élément | Exposition | Décision |
 |---|---|---|
 | Ports Redis / MongoDB / Cassandra | publiés **uniquement** par `docker-compose.override.yml` (développement) | non exposés en production |
-| Actuator | `health`, `info`, `metrics`, `prometheus` | accessible aussi derrière la gateway (`/collector/**`, `/storage/**`, `/analytics/**`, `/sensor/**`, D-26) ; en production, restreindre les ports directs (retirer `ports:` ou filtrer au pare-feu) et/ou exiger l'authentification `EXT-12` |
+| Actuator | `health`, `info`, `metrics`, `prometheus` | accessible aussi derrière la gateway (`/collector/**`, `/storage/**`, `/analytics/**`, `/sensor/**`, D-26) ; en production, restreindre les ports directs (retirer `ports:` ou filtrer au pare-feu) et/ou exiger l'authentification `EXT-12`. **`show-details` reste désactivé** (D-32) : l'interface n'affiche que `UP`/`DOWN`, aucun composant interne n'est exposé. |
+| Interface EXT-UI | fichiers statiques sur `:8080/` | lecture seule via les routes publiques ; une écriture confinée au capteur de recette `UI-TEST-001` (page Scénarios) ; aucune donnée sensible, aucun secret côté navigateur |
 | `POST /api/measurements` | public | à protéger par clé d'API ou JWT (extension `EXT-12`, CDC §18.3) |
 | `POST/PUT/DELETE /api/sensors` | public | réservé au rôle ADMIN (extension `EXT-12`, CDC §18.3) |
 
@@ -49,6 +50,13 @@
   `MEASUREMENT_MAX_BODY_BYTES` (défaut `10240`). Preuves : `BodySizeLimitFilterTest` (5 cas) et le
   contrôle « corps > 10 Ko » de `make e2e` (413 + `XLEN` inchangé) — c'est ce filtre qui produit
   aussi le 413 annoncé par les tableaux de contrats.
+- **Interface EXT-UI (D-28 à D-33)** : fichiers statiques sans étape de build, servis
+  par la gateway. Aucun secret n'est présent côté navigateur, aucune requête ne sort
+  de l'origine (Chart.js est vendorisé, pas de CDN). Toute valeur reçue de l'API est
+  échappée (`escapeHtml`) avant insertion HTML ; les erreurs affichées se limitent à
+  `code`, `message` et `traceId`. L'interface est en **lecture seule**, sauf la page
+  Scénarios qui écrit uniquement dans `UI-TEST-001`. Son authentification relève de
+  `EXT-12`, comme les autres routes publiques.
 
 ## Extensions possibles — `EXT-12` (détail CDC §18.3)
 

@@ -1,30 +1,34 @@
 # Preuves de tests (matrice de recette)
 
 Recette **entièrement automatisée** : `make e2e` (`scripts/e2e.sh`) exécute les scénarios 1 à 11
-du CDC, le contrôle **413 au-delà de 10 Ko** (étape 12) et **9 contrôles de la gateway**
-(`EXT-GW`) sur la plateforme Docker réelle. Les routes métier du script passent par `:8080`
-(D-25) ; les contrôles de readiness utilisent les préfixes ops `/collector|storage|analytics|sensor`
-(D-26). Les attentes sont élargies (`READY_TIMEOUT=600 s`, `WAIT_TIMEOUT=90 s`, D-27).
+du CDC, le contrôle **413 au-delà de 10 Ko** (étape 12) et les contrôles **gateway** (`EXT-GW`)
+et **interface** (`EXT-UI`) sur la plateforme Docker réelle. Les routes métier du script passent
+par `:8080` (D-25) ; les contrôles de readiness utilisent les préfixes ops
+`/collector|storage|analytics|sensor` (D-26). Les attentes sont élargies
+(`READY_TIMEOUT=600 s`, `WAIT_TIMEOUT=90 s`, D-27).
 Les tests d'intégration des quatre services (`mvn -B test`) couvrent les mêmes scénarios en
-Testcontainers. Campagnes complètes : `preuves/tests/resultats-2026-10-28.md` (MVP, accès direct)
+Testcontainers ; l'interface a ses propres tests `node --test` et des captures Playwright.
+Campagnes complètes : `preuves/tests/resultats-2026-10-28.md` (MVP, accès direct)
 et logs `/tmp/opencode/e2e-gateway-clean.log` + `/tmp/opencode/perf-gateway.log` (EXT-GW, via `:8080`).
 
 > **Numérotations** : cette matrice utilise les scénarios **1–11** (CDC) ; le gabarit de
 > preuves `preuves/tests/resultats-modele.md` utilise les labels **T01–T14** du guide.
 > Les deux référent le même recette.
 
-## Contrôles gateway (`EXT-GW`, 9 vérifications)
+## Contrôles gateway et interface (`EXT-GW`, `EXT-UI`)
 
 | Contrôle | Attendu |
 |---|---|
 | `GET :8080/actuator/health/readiness` | 200 (la gateway est prête) |
-| `GET :8080/` | 200 — placeholder `frontend/index.html` |
+| `GET :8080/` | 200 — interface `EXT-UI` (`frontend/index.html`) |
 | `GET :8080/swagger-ui.html` (suivi de redirection) | 200 — Swagger agrégé |
 | `GET :8080/v3/api-docs/{collector,storage,analytics,sensor}` | 200 ×4 — agrégation des 4 APIs |
 | `OPTIONS :8080/api/measurements` avec `Origin` | 200 — préflight CORS |
 | `GET :8080/api/sensors/SENSOR-001/daily-summary` | 200 — ordre **D-17** (analytics, pas sensor-service) |
+| `GET :8080/app.js`, `/styles.css`, `/vendor/chart.umd.js` | 200 — modules ES et Chart.js vendorisé (> 100 Ko) |
+| `GET :8080/collector/actuator/metrics/energy_measurements_received_total?tag=result=accepted|rejected` | 200 ×2 — compteur CDC §9 pré-enregistré (D-31) |
 
-## Tests unitaires présents dans le dépôt (76 tests actifs)
+## Tests unitaires présents dans le dépôt (84 tests actifs)
 
 | Classe | Service | Cas |
 |---|---|---|
@@ -57,10 +61,40 @@ et logs `/tmp/opencode/e2e-gateway-clean.log` + `/tmp/opencode/perf-gateway.log`
 
 **Total : 84 + 18 = 102 tests** (`mvn -B test`).
 
-## Scénarios de recette — résultats (campagne du 2026-11-05, plateforme Docker réelle, via la gateway)
+## Tests unitaires de l'interface (`EXT-UI`, 84 tests Node)
 
-`scripts/e2e.sh` : **73 vérifications, 73 OK** (9 contrôles gateway + scénarios 1–11 + 413 étape 12), sur plateforme
-remise à plat (`docker compose down -v && make up`). Logs : `/tmp/opencode/e2e-gateway-clean.log`.
+`make ui-test` (ou `cd frontend && npm test`) exécute `node --test` ; aucune dépendance
+npm n'est nécessaire en production. Les fixtures de `frontend/tests/fixtures/` sont des
+réponses **réelles** capturées sur la plateforme (capteurs, historique, résumé, anomalies,
+métriques Actuator), ce qui vérifie aussi la forme des contrats consommés.
+
+| Fichier | Cas | Couverture |
+|---|---|---|
+| `errors.test.js` | 11 | décodage Problem Details (complet, réduit gateway, absent), champs en erreur, `NO_DATA` vs panne, `UPSTREAM_UNAVAILABLE` |
+| `fixtures.test.js` | 12 | forme des réponses réelles : capteurs, exceedances, historique, latest, summary, daily-summary, anomalies, santé, 3 métriques |
+| `format.test.js` | 12 | dates UTC (et infobulle locale), âges, nombres fr-FR, unités, échappement HTML, libellés |
+| `metrics.test.js` | 12 | `parseMetric`, gauge/counter/timer, `RateTracker` (dont redémarrage → `n/d`), `RingBuffer`, `formatRate` |
+| `modules.test.js` | 16 | import sans DOM de 14 modules + `apiUrl` + export `render` des 5 vues |
+| `ranges.test.js` | 9 | presets, bornes 7 j / 31 j, dates inversées, jour UTC |
+| `report.test.js` | 6 | rapport T01–T14 : statuts normalisés, événements vides en `NA` (jamais `OK` par défaut), échappement, JSON |
+| `router.test.js` | 6 | hash par défaut, segments décodés, query, paramètres de route, non-correspondance |
+
+**Total : 84 tests Node** (`node --test tests/*.test.js`).
+
+## Captures de l'interface (`EXT-UI`)
+
+`make captures` (Playwright 1.64.1, plateforme démarrée) vérifie les 6 vues et écrit
+`preuves/captures/ext-ui/{dashboard,sensors,sensor-detail,analytics,system,scenarios}.png`
+plus `capture-report.json`. Une vue est en échec si elle répond en HTTP ≥ 400, si un
+sélecteur de disponibilité manque, si un bloc `.empty--error` apparaît, ou si le
+navigateur journalise une exception JavaScript / une erreur console inattendue.
+Le 501 `FORECAST_DISABLED` (extension 9C) et les 404 d'absence de données sont tolérés.
+
+## Scénarios de recette — résultats (campagne du 2026-11-06, plateforme Docker réelle, via la gateway)
+
+`scripts/e2e.sh` : **81 vérifications, 81 OK** (scénarios 1–11, 413 étape 12, contrôles EXT-GW et EXT-UI),
+sur plateforme remise à plat (`docker compose down -v && make up`). Logs :
+`/tmp/opencode/e2e-ext-ui-final2.log`.
 
 | N° | Scénario | Résultat attendu | Preuve | Résultat obtenu |
 |---|---|---|---|---|
@@ -76,7 +110,8 @@ remise à plat (`docker compose down -v && make up`). Logs : `/tmp/opencode/e2e-
 | 10 | Message poison dans le stream | Envoyé en DLQ, le flux continue | `XLEN` de la DLQ | **OK** — DLQ ≥ 1, mesure suivante acceptée 202 **et** persistée en Cassandra |
 | 11 | sensor-service arrêté | Analytics traite avec le seuil par défaut | anomalie `thresholdSource = DEFAULT` | **OK** — anomalie détectée après coupure, `thresholdKw=10.0`, `thresholdSource=DEFAULT`, service restauré à 200 |
 | 12 | Corps > 10 Ko (étape 12) | 413 `PAYLOAD_TOO_LARGE` sans publication | réponse + `XLEN` | **OK** — 413 `application/problem+json`, `code=PAYLOAD_TOO_LARGE`, `XLEN` inchangé |
-| 13 | Gateway `EXT-GW` | Accueil, Swagger agrégé et CORS disponibles via `:8080` ; `daily-summary` routé vers analytics (D-17) | 9 contrôles `scripts/e2e.sh` | **OK** — readiness gateway, `GET /`, `swagger-ui.html`, 4 `/v3/api-docs/{service}`, préflight CORS, `daily-summary` 200 |
+| 13 | Gateway `EXT-GW` | Accueil, Swagger agrégé et CORS disponibles via `:8080` ; `daily-summary` routé vers analytics (D-17) | contrôles `scripts/e2e.sh` | **OK** — readiness gateway, `GET /`, `swagger-ui.html`, 4 `/v3/api-docs/{service}`, préflight CORS, `daily-summary` 200 |
+| 14 | Interface `EXT-UI` | Accueil, modules ES, CSS, Chart.js et métriques disponibles via `:8080` | contrôles `scripts/e2e.sh` | **OK** — `/`, `/app.js`, `/styles.css` 200 ; Chart.js 205 615 octets ; `/api/sensors` 200 ; tags `result=accepted` et `result=rejected` 200 |
 
 ## Mesures de performance (étapes 5 et 11) — `scripts/perf.sh` / `make perf`
 
@@ -105,6 +140,8 @@ résultats analytiques vérifiables, scénarios de panne testés, secrets absent
   (réponse de la gateway quand storage-service est arrêté, D-25).
 - Swagger : `/v3/api-docs` → 200 sur les 4 services **et** agrégé sur
   `http://localhost:8080/swagger-ui.html` (`/v3/api-docs/{collector|storage|analytics|sensor}` → 200).
-- Gateway : `make e2e` vérifie l'accueil, le CORS, les 4 documents OpenAPI et l'ordre D-17.
-- CI : le workflow `.github/workflows/ci.yml` rejoue `mvn -B -ntp test` **et** `make up` +
-  `./scripts/e2e.sh` sur chaque pull request vers `main` (voir README §5.1).
+- Gateway et interface : `make e2e` vérifie l'accueil EXT-UI, les fichiers statiques, les métriques du
+  collector, le CORS, les 4 documents OpenAPI et l'ordre D-17.
+- Interface : `make ui-test` (84 tests Node) et `make captures` (6 vues, rapport `ok: true`).
+- CI : le workflow `.github/workflows/ci.yml` rejoue `mvn -B -ntp test`, `npm test` dans `frontend/`
+  puis `make up` + `./scripts/e2e.sh` sur chaque pull request vers `main` (voir README §5.1).
