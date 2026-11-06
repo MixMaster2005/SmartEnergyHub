@@ -156,9 +156,12 @@ class StorageIntegrationTest {
         attendre(60, "la mesure recente est lisible", () -> dernierStatut("IT-OLD-1") == 200
                 && dernierCorps("IT-OLD-1").contains("\"powerKw\":7.7"));
 
-        // une mesure plus ancienne arrive apres : USING TIMESTAMP empeche d'ecraser le latest (D-10)
-        publier(mesure("IT-OLD-1", Instant.now().minus(3, ChronoUnit.HOURS), 9.9));
-        attendre(60, "l'evenement ancien est consomme", () -> compte("IT-OLD-1", recente.day()) == 2);
+        // une mesure plus ancienne arrive apres : USING TIMESTAMP empeche d'ecraser le latest (D-10).
+        // Deux jours distincts possibles : entre 00:00 et 03:00 UTC, -3 h bascule la veille.
+        EnergyMeasurement ancienne = mesure("IT-OLD-1", Instant.now().minus(3, ChronoUnit.HOURS), 9.9);
+        publier(ancienne);
+        attendre(60, "l'evenement ancien est consomme",
+                () -> compteJours("IT-OLD-1", recente.day(), ancienne.day()) == 2);
 
         assertThat(dernierCorps("IT-OLD-1")).contains("\"powerKw\":7.7");
     }
@@ -217,6 +220,15 @@ class StorageIntegrationTest {
 
     private String dernierCorps(String sensorId) {
         return rest.getForObject("/api/measurements/{id}/latest", String.class, sensorId);
+    }
+
+    /** Comptage sur plusieurs partitions jours, sans double compter un jour repete. */
+    private long compteJours(String sensorId, LocalDate... days) {
+        long total = 0;
+        for (LocalDate day : new java.util.LinkedHashSet<>(java.util.Arrays.asList(days))) {
+            total += compte(sensorId, day);
+        }
+        return total;
     }
 
     /** Comptage CQL direct (requetee par la cle de partition (sensor_id, day)). */
