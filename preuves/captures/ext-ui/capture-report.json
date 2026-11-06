@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-11-06T00:47:36.149Z",
+  "baseUrl": "http://localhost:8080",
+  "sensorId": "SENSOR-003",
+  "viewport": "1440x1000",
+  "browser": "chrome",
+  "results": [
+    {
+      "id": "dashboard",
+      "label": "Tableau de bord",
+      "url": "http://localhost:8080/#/dashboard",
+      "title": "Tableau de bord — SmartEnergy Hub",
+      "screenshot": "dashboard.png",
+      "durationMs": 2292,
+      "problems": [],
+      "ok": true
+    },
+    {
+      "id": "sensors",
+      "label": "Liste des capteurs",
+      "url": "http://localhost:8080/#/sensors",
+      "title": "Capteurs — SmartEnergy Hub",
+      "screenshot": "sensors.png",
+      "durationMs": 1299,
+      "problems": [],
+      "ok": true
+    },
+    {
+      "id": "sensor-detail",
+      "label": "Fiche capteur",
+      "url": "http://localhost:8080/#/sensors/SENSOR-003",
+      "title": "Capteur — SmartEnergy Hub",
+      "screenshot": "sensor-detail.png",
+      "durationMs": 1643,
+      "problems": [],
+      "ok": true
+    },
+    {
+      "id": "analytics",
+      "label": "Analyses",
+      "url": "http://localhost:8080/#/analytics",
+      "title": "Analyses — SmartEnergy Hub",
+      "screenshot": "analytics.png",
+      "durationMs": 1873,
+      "problems": [],
+      "ok": true
+    },
+    {
+      "id": "system",
+      "label": "Systeme",
+      "url": "http://localhost:8080/#/system",
+      "title": "Système — SmartEnergy Hub",
+      "screenshot": "system.png",
+      "durationMs": 1883,
+      "problems": [],
+      "ok": true
+    },
+    {
+      "id": "scenarios",
+      "label": "Scenarios",
+      "url": "http://localhost:8080/#/scenarios",
+      "title": "Scénarios — SmartEnergy Hub",
+      "screenshot": "scenarios.png",
+      "durationMs": 1594,
+      "problems": [],
+      "ok": true
+    }
+  ],
+  "ok": true
+}
