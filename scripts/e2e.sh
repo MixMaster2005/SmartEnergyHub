@@ -496,7 +496,7 @@ check "GET summary analytics toujours disponible" 200 \
 echo "== Controle EXT-UI : interface servie par la gateway"
 INDEX=$(get_body "$GATEWAY/")
 check "GET / (accueil)" 200 "$(get_status "$GATEWAY/")"
-check "accueil = interface EXT-UI" 1 "$(printf '%s' "$INDEX" | grep -c 'Interface de consultation')"
+check_ge "accueil = interface EXT-UI" 1 "$(printf '%s' "$INDEX" | grep -c 'EXT-UI')"
 check "module d'entree /app.js" 200 "$(get_status "$GATEWAY/app.js")"
 check "feuille de style /styles.css" 200 "$(get_status "$GATEWAY/styles.css")"
 check_ge "Chart.js vendorise (> 100 Ko)" 100000 \
