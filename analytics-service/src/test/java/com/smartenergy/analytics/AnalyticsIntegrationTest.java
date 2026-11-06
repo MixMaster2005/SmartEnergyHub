@@ -158,6 +158,15 @@ class AnalyticsIntegrationTest {
                 .contains("\"powerKw\":30.0")
                 .contains("\"thresholdKw\":" + SEUIL_PAR_DEFAUT_KW)
                 .contains("\"thresholdSource\":\"SENSOR\"");
+
+        // Regression : from ET to ensemble ne doivent pas produire deux criteres `timestamp`
+        // (InvalidMongoDbApiUsageException, 500 INTERNAL_ERROR).
+        String from = Instant.now().minus(1, ChronoUnit.HOURS).toString();
+        String to = Instant.now().plus(1, ChronoUnit.MINUTES).toString();
+        String filtered = rest.getForObject(
+                "/api/analytics/IT-ANOM-1/anomalies?type=THRESHOLD&size=100&from=" + from + "&to=" + to,
+                String.class);
+        assertThat(filtered).contains("\"totalElements\":1");
     }
 
     // ------------------------------------------------------ scenario 8
