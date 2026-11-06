@@ -24,7 +24,9 @@ Les règles de validation (plages `powerKw`/`voltage`, regex `sensorId`…) vive
 `MEASUREMENT_MAX_BODY_BYTES` (10240) · `STREAM_NAME` ·
 `STREAM_MAXLEN` · Actuator : `health,info,metrics,prometheus`, readiness `readinessState,redis`.
 Jackson : **pas de coercion** (`"3.72"` en chaîne est refusé).
-Métriques : `energy_measurements_published_total` + timer `energy_measurements_publish`.
+Métriques : `energy_measurements_received_total{result=accepted|rejected}` (filtre
+`MeasurementMetricsFilter`, CDC §9), `energy_measurements_published_total` + timer
+`energy_measurements_publish`.
 
 ## Déjà fait
 Application, propriétés, bean `Clock`, `application.yml`, `/api/health` + erreurs + `X-Request-Id` (platform-web), image Docker (Dockerfile racine).

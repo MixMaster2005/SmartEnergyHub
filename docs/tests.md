@@ -32,6 +32,7 @@ et logs `/tmp/opencode/e2e-gateway-clean.log` + `/tmp/opencode/perf-gateway.log`
 | `MeasurementPublisherTest` | collector | 3 (XADD, MAXLEN, 503 Redis KO) |
 | `MeasurementControllerTest` | collector | 4 (202 + X-Event-Id, 400, 503) |
 | `BodySizeLimitFilterTest` | collector | 5 (413 `Content-Length` + corps problem+json, limite exacte 10 240 octets, chunked débordant → 413, chunked dans la limite lu intégralement, autres routes/méthodes ignorées, étape 12) |
+| `MeasurementMetricsFilterTest` | collector | 8 (202 → `accepted`, 400/413/503 → `rejected`, exception non gérée → `rejected`, autres méthodes/chemins ignorés, cumul de deux appels, pré-enregistrement des deux séries à zéro — CDC §9) |
 | `SensorServiceTest` | sensor | 7 (création, doublon, sensorId incohérent, inconnu, page, version périmée → 409 `VERSION_CONFLICT` (version courante acceptée), `DuplicateKeyException` → 409 `SENSOR_ALREADY_EXISTS`) |
 | `EventIdsTest` | contracts | 4 (UUID v5 déterministe) |
 | `MeasurementEventCodecTest` | contracts | 7 (aller-retour du codec d'événement) |
@@ -43,7 +44,7 @@ et logs `/tmp/opencode/e2e-gateway-clean.log` + `/tmp/opencode/perf-gateway.log`
 | `StreamLagMetricsTest` | platform | 4 (noms de métriques + tag `group`, refresh pending/lag, tolérance d'une panne Redis, lag inconnu/groupe absent = 0, D-24) |
 | `GlobalExceptionHandlerTest` | platform | 5 (404 / 405 / 415 enrichis `code` + `traceId` + URI `type` + titre FR, corps déjà signé non écrasé, chemin `ApiException` inchangé) |
 
-**Total : 76 tests unitaires.**
+**Total : 84 tests unitaires.**
 
 ## Tests d'intégration (18 tests, Testcontainers — exécutés à chaque `mvn -B test`)
 
@@ -54,7 +55,7 @@ et logs `/tmp/opencode/e2e-gateway-clean.log` + `/tmp/opencode/perf-gateway.log`
 | `AnalyticsIntegrationTest` | analytics | 4, 8, 11 | 4 (agrégats horaires exacts avec seuil lu chez le faux sensor-service, pic ×3 → anomalie `THRESHOLD` `HIGH` listée, doublon → compteur inchangé, sensor-service coupé → seuil `DEFAULT` ; faux sensor-service HTTP JDK embarqué, D-20) |
 | `SensorServiceIntegrationTest` | sensor | étape 6 | 3 (création 201 + `Location` puis lecture directe et filtre `building`, métadonnées consultables avec Cassandra arrêté — aucun conteneur Cassandra ni driver `CqlSession` au classpath, doublon → 409 `SENSOR_ALREADY_EXISTS` `application/problem+json` avec index `uk_sensorId` présent et insertion brute en double refusée par MongoDB) |
 
-**Total : 76 + 18 = 94 tests** (`mvn -B test`).
+**Total : 84 + 18 = 102 tests** (`mvn -B test`).
 
 ## Scénarios de recette — résultats (campagne du 2026-11-05, plateforme Docker réelle, via la gateway)
 
@@ -97,7 +98,7 @@ Reprendre la checklist du guide (section 28) : compilation sans modification man
 requêtes invalides rejetées, messages visibles dans Redis, mesures dans Cassandra, capteurs/agrégats dans MongoDB, historique via API,
 résultats analytiques vérifiables, scénarios de panne testés, secrets absents du dépôt, Swagger accessible.
 
-- Compilation : `mvn -B test` vert (94 tests) ; `docker compose build` sans erreur.
+- Compilation : `mvn -B test` vert (102 tests) ; `docker compose build` sans erreur.
 - Requêtes invalides rejetées : scénarios 2, 413, tests d'intégration (400/413 `application/problem+json`).
 - Messages dans Redis / mesures dans Cassandra / agrégats MongoDB : scénarios 1, 3, 4, 8, 10, 11.
 - Scénarios de panne : 5, 6, 7, 9, 11 (tout OK). Le scénario 5 attend désormais **503**
