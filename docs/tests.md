@@ -28,6 +28,10 @@ et logs `/tmp/opencode/e2e-gateway-clean.log` + `/tmp/opencode/perf-gateway.log`
 | `GET :8080/app.js`, `/styles.css`, `/vendor/chart.umd.js` | 200 — modules ES et Chart.js vendorisé (> 100 Ko) |
 | `GET :8080/collector/actuator/metrics/energy_measurements_received_total?tag=result=accepted|rejected` | 200 ×2 — compteur CDC §9 pré-enregistré (D-31) |
 
+Le jar `gateway-service/target/app.jar` contient aussi les fichiers de l'interface
+(`BOOT-INF/classes/static/{index.html,app.js,styles.css,vendor/chart.umd.js}`) : la gateway
+reste autonome sans le volume Compose (D-29).
+
 ## Tests unitaires présents dans le dépôt (84 tests actifs)
 
 | Classe | Service | Cas |
