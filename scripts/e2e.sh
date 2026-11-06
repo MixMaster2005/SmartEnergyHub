@@ -8,7 +8,8 @@
 # ne les utilise pas par defaut ; les routes ops passent par /<service>/...
 # (prefixe retire par la gateway) pour les controles de readiness.
 #
-# Couverture : gateway puis sante des services, scenarios 1 a 11 du CDC.
+# Couverture : gateway puis sante des services, scenarios 1 a 11 du CDC,
+# controle 413 (etape 12) et controles EXT-GW + EXT-UI.
 #   1  mesure valide -> 202 + evenement dans le stream
 #   2  champ manquant -> 400 application/problem+json, aucun evenement
 #   3  historique pagine + latest (etape 8)
@@ -20,6 +21,8 @@
 #   9  Redis arrete -> collector 503 + Retry-After
 #   10 message poison -> DLQ, le flux continue
 #   11 sensor-service arrete -> seuil par defaut (thresholdSource = DEFAULT)
+#   +  corps > 10 Ko -> 413 (etape 12)
+#   +  controles EXT-UI : HTML, JS, CSS, Chart.js, metriques du collector
 #
 # Le script arrete lui-meme storage-service, redis et sensor-service puis les
 # restaure en sortie (trap) ; il termine par le redemarrage complet (scenario 7).
@@ -483,6 +486,21 @@ check "GET historique toujours disponible" 200 \
   "$(get_status "$STORAGE/api/measurements/SENSOR-001")"
 check "GET summary analytics toujours disponible" 200 \
   "$(get_status "$ANALYTICS/api/analytics/SENSOR-001/summary")"
+
+# ==========================================================================
+echo "== Controle EXT-UI : interface servie par la gateway"
+INDEX=$(get_body "$GATEWAY/")
+check "GET / (accueil)" 200 "$(get_status "$GATEWAY/")"
+check "accueil = interface EXT-UI" 1 "$(printf '%s' "$INDEX" | grep -c 'Interface de consultation')"
+check "module d'entree /app.js" 200 "$(get_status "$GATEWAY/app.js")"
+check "feuille de style /styles.css" 200 "$(get_status "$GATEWAY/styles.css")"
+check_ge "Chart.js vendorise (> 100 Ko)" 100000 \
+  "$(curl -s -o /dev/null -w '%{size_download}' "$GATEWAY/vendor/chart.umd.js")"
+check "source de donnees de l'UI /api/sensors" 200 "$(get_status "$GATEWAY/api/sensors?size=1")"
+check "metrique result=accepted (CDC §9)" 200 \
+  "$(get_status "$COLLECTOR_OPS/actuator/metrics/energy_measurements_received_total?tag=result:accepted")"
+check "metrique result=rejected (CDC §9)" 200 \
+  "$(get_status "$COLLECTOR_OPS/actuator/metrics/energy_measurements_received_total?tag=result:rejected")"
 
 echo
 echo "Resultat : $PASS OK, $FAIL echec(s)"
