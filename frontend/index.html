@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
+  <meta name="application-name" content="SmartEnergy Hub EXT-UI">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Interface Web de consultation SmartEnergy Hub : santé, capteurs, analyses, métriques et scénarios de recette.">
   <title>SmartEnergy Hub — Interface de consultation</title>
@@ -12,41 +13,51 @@
 <body>
   <a class="skip-link" href="#app">Aller au contenu</a>
 
-  <header class="topbar">
-    <a class="brand" href="#/dashboard" aria-label="SmartEnergy Hub, tableau de bord">
-      <span class="brand__mark" aria-hidden="true">⚡</span>
-      <span class="brand__text">
-        <strong>SmartEnergy Hub</strong>
-        <small>Interface de consultation · EXT-UI</small>
-      </span>
-    </a>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#/dashboard" aria-label="SmartEnergy Hub, tableau de bord">
+        <span class="brand__text">
+          <strong>SmartEnergy Hub</strong>
+          <small>Supervision énergétique</small>
+        </span>
+      </a>
 
-    <nav class="nav" aria-label="Navigation principale">
-      <a href="#/dashboard" data-nav="/dashboard">Tableau de bord</a>
-      <a href="#/sensors" data-nav="/sensors">Capteurs</a>
-      <a href="#/analytics" data-nav="/analytics">Analyses</a>
-      <a href="#/system" data-nav="/system">Système</a>
-      <a href="#/scenarios" data-nav="/scenarios">Scénarios</a>
-    </nav>
+      <nav class="nav" aria-label="Navigation principale">
+        <a href="#/dashboard" data-nav="/dashboard">
+          Tableau de bord
+        </a>
+        <a href="#/sensors" data-nav="/sensors">
+          Capteurs
+        </a>
+        <a href="#/analytics" data-nav="/analytics">
+          Analyses
+        </a>
+        <a href="#/system" data-nav="/system">
+          Système
+        </a>
+        <a href="#/scenarios" data-nav="/scenarios">
+          Scénarios
+        </a>
+      </nav>
 
-    <div class="topbar__meta">
-      <span id="gateway-status" class="badge badge--neutral" title="Santé de la gateway">gateway : …</span>
-      <span id="last-refresh" class="muted">—</span>
-    </div>
-  </header>
+      <div class="sidebar__foot">
+        <div class="sidebar__status">
+          <span id="gateway-status" class="badge badge--neutral" title="Santé de la gateway">gateway : …</span>
+          <span id="last-refresh" class="muted small">—</span>
+        </div>
+        <div class="sidebar__links">
+          <a href="/swagger-ui.html" target="_blank" rel="noreferrer">Documentation de l'API</a>
+          <a href="/collector/actuator/prometheus" target="_blank" rel="noreferrer">Métriques Prometheus</a>
+          <a href="/actuator/health" target="_blank" rel="noreferrer">Santé de la gateway</a>
+        </div>
+        <p class="sidebar__note">Heures affichées en UTC.</p>
+      </div>
+    </aside>
 
-  <main id="app" class="app" tabindex="-1">
-    <div class="loading"><span class="spinner"></span> Chargement de l'interface…</div>
-  </main>
-
-  <footer class="footer">
-    <span>Données lues via la gateway <code>:8080</code> · heures affichées en UTC.</span>
-    <span class="footer__links">
-      <a href="/swagger-ui.html" target="_blank" rel="noreferrer">Swagger agrégé</a>
-      <a href="/collector/actuator/prometheus" target="_blank" rel="noreferrer">Prometheus collector</a>
-      <a href="/actuator/health" target="_blank" rel="noreferrer">Santé gateway</a>
-    </span>
-  </footer>
+    <main id="app" class="app" tabindex="-1">
+      <div class="loading"><span class="spinner"></span> Chargement de l'interface…</div>
+    </main>
+  </div>
 
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <script type="module" src="/app.js"></script>

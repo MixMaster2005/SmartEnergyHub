@@ -101,3 +101,7 @@ Voir `tools/capture/README.md`. Les preuves sont écrites dans
 3. Ajouter le lien dans la navigation de `index.html` (`data-nav`).
 4. Ajouter la vue à `tools/capture/capture.mjs` (sélecteur de disponibilité et
    contrôles) et à `frontend/tests/modules.test.js`.
+
+## Police
+
+L'interface utilise IBM Plex Sans (graisses 400, 500, 600), vendorisée dans `vendor/fonts/` pour fonctionner hors ligne. Licence SIL Open Font License 1.1 : voir `vendor/fonts/PLEX-LICENSE.txt`.

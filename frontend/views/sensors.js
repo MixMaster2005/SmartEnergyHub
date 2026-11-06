@@ -38,7 +38,7 @@ async function renderList({ mount, signal, navigate }) {
     <div class="page-head">
       <div>
         <h1>Capteurs</h1>
-        <p>Référentiel sensor-service (MongoDB). Cliquez sur un capteur pour ouvrir sa fiche.</p>
+        <p>Capteurs enregistrés. Cliquez sur un capteur pour ouvrir sa fiche.</p>
       </div>
       <div class="page-head__actions">
         <input class="input" type="search" placeholder="Rechercher…" data-search aria-label="Rechercher un capteur">
@@ -241,8 +241,8 @@ async function renderDetail({ mount, params, signal, navigate }) {
           {
             label: 'Puissance (kW)',
             data: points.map((point) => ({ x: new Date(point.timestamp).getTime(), y: point.powerKw })),
-            borderColor: '#0b6bcb',
-            backgroundColor: 'rgba(11, 107, 203, .10)',
+            borderColor: '#0a5f9e',
+            backgroundColor: 'rgba(10, 95, 158, .10)',
             fill: true,
             borderWidth: 2,
             pointRadius: 0,
@@ -250,9 +250,9 @@ async function renderDetail({ mount, params, signal, navigate }) {
             tension: 0.25,
           },
           {
-            label: 'Seuil maxPowerKw',
+            label: 'Seuil du capteur',
             data: thresholdData,
-            borderColor: '#b42318',
+            borderColor: '#a8231b',
             borderDash: [6, 5],
             borderWidth: 1.5,
             pointRadius: 0,
@@ -264,7 +264,7 @@ async function renderDetail({ mount, params, signal, navigate }) {
               x: new Date(anomaly.timestamp).getTime(),
               y: anomaly.powerKw,
             })),
-            backgroundColor: '#b42318',
+            backgroundColor: '#a8231b',
             borderColor: '#ffffff',
             borderWidth: 1,
             pointRadius: 4,
@@ -281,13 +281,14 @@ async function renderDetail({ mount, params, signal, navigate }) {
         scales: {
           x: {
             type: 'linear',
-            grid: { color: '#eef2f7' },
+            bounds: 'data',
+            grid: { color: '#e4e8ec' },
             ticks: { maxRotation: 0, autoSkip: true, callback: (value) => formatUtcTime(value) },
           },
           y: {
             beginAtZero: true,
             title: { display: true, text: 'kW' },
-            grid: { color: '#eef2f7' },
+            grid: { color: '#e4e8ec' },
           },
         },
         plugins: {
@@ -324,7 +325,7 @@ async function renderDetail({ mount, params, signal, navigate }) {
             <td>${badge(severityLabel(anomaly.severity), anomaly.severity === 'HIGH' ? 'danger' : anomaly.severity === 'MEDIUM' ? 'warn' : 'neutral')}</td>
             <td class="num">${formatNumber(anomaly.powerKw, 2)} kW</td>
             <td class="num">${anomaly.thresholdKw === null || anomaly.thresholdKw === undefined ? '—' : `${formatNumber(anomaly.thresholdKw, 2)} kW`}</td>
-            <td>${anomaly.thresholdSource ? badge(anomaly.thresholdSource, anomaly.thresholdSource === 'SENSOR' ? 'ok' : 'warn') : '—'}</td>
+            <td>${anomaly.thresholdSource ? (anomaly.thresholdSource === 'SENSOR' ? badge('seuil du capteur', 'ok', 'Seuil défini sur le capteur') : badge('seuil par défaut', 'warn', 'Capteur non enregistré : seuil par défaut appliqué')) : '—'}</td>
             <td class="num">${anomaly.zScore === null || anomaly.zScore === undefined ? '—' : formatNumber(anomaly.zScore, 2)}</td>
             <td><code title="${escapeHtml(anomaly.eventId || '')}">${escapeHtml(shortId(anomaly.eventId))}</code></td>
           </tr>`).join('')}

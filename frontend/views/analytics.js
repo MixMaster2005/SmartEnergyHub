@@ -26,7 +26,7 @@ export async function render({ mount, params, signal, navigate }) {
     <div class="page-head">
       <div>
         <h1>Analyses</h1>
-        <p>Indicateurs horaires, résumé quotidien et anomalies (analytics-service).</p>
+        <p>Indicateurs horaires, résumé quotidien et anomalies d'un capteur.</p>
       </div>
       <div class="page-head__actions">
         <select class="select" data-sensor aria-label="Capteur"></select>
@@ -71,7 +71,7 @@ export async function render({ mount, params, signal, navigate }) {
       <div data-anomalies><div class="loading"><span class="spinner"></span> Chargement…</div></div>
     </section>
     <section class="section">
-      <div class="section__head"><h2>Prévision</h2><span class="muted small">extension 9C</span></div>
+      <div class="section__head"><h2>Prévision</h2><span class="muted small">extension à venir</span></div>
       <div data-forecast><div class="loading"><span class="spinner"></span> Vérification…</div></div>
     </section>
   `;
@@ -122,7 +122,7 @@ export async function render({ mount, params, signal, navigate }) {
 
   function renderSummary(summary) {
     nodes.summary.innerHTML = [
-      statCard({ label: 'Mesures agrégées', value: formatNumber(summary.count, 0), hint: `${formatUtc(summary.effectiveFrom)} → ${formatUtc(summary.effectiveTo)}` }),
+      statCard({ label: 'Mesures agrégées', value: formatNumber(summary.count, 0), hint: 'regroupées par heure' }),
       statCard({ label: 'Puissance moyenne', value: formatKw(summary.avgPowerKw), hint: 'granularité horaire' }),
       statCard({ label: 'Puissance minimale', value: formatKw(summary.minPowerKw), hint: 'sur la période' }),
       statCard({ label: 'Puissance maximale', value: formatKw(summary.maxPowerKw), hint: 'sur la période' }),
@@ -210,7 +210,7 @@ export async function render({ mount, params, signal, navigate }) {
             <td>${badge(severityLabel(anomaly.severity), anomaly.severity === 'HIGH' ? 'danger' : anomaly.severity === 'MEDIUM' ? 'warn' : 'neutral')}</td>
             <td class="num">${formatNumber(anomaly.powerKw, 2)} kW</td>
             <td class="num">${anomaly.thresholdKw === null || anomaly.thresholdKw === undefined ? '—' : `${formatNumber(anomaly.thresholdKw, 2)} kW`}</td>
-            <td>${anomaly.thresholdSource ? badge(anomaly.thresholdSource, anomaly.thresholdSource === 'SENSOR' ? 'ok' : 'warn') : '—'}</td>
+            <td>${anomaly.thresholdSource ? (anomaly.thresholdSource === 'SENSOR' ? badge('seuil du capteur', 'ok', 'Seuil défini sur le capteur') : badge('seuil par défaut', 'warn', 'Capteur non enregistré : seuil par défaut appliqué')) : '—'}</td>
             <td class="num">${anomaly.zScore === null || anomaly.zScore === undefined ? '—' : formatNumber(anomaly.zScore, 2)}</td>
             <td><code title="${escapeHtml(anomaly.eventId || '')}">${escapeHtml(shortId(anomaly.eventId))}</code></td>
           </tr>`).join('')}</tbody>

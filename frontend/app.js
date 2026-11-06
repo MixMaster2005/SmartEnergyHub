@@ -4,7 +4,7 @@
  */
 import { api } from './api.js';
 import { errorMessage } from './errors.js';
-import { formatUtc } from './format.js';
+import { formatUtc, formatUtcTime } from './format.js';
 import { createPoller } from './poller.js';
 import { createRouter } from './router.js';
 import { badge, toast } from './ui.js';
@@ -23,6 +23,12 @@ const routes = [
   { pattern: '/system', view: system.render, title: 'Système' },
   { pattern: '/scenarios', view: scenarios.render, title: 'Scénarios' },
 ];
+
+if (window.Chart) {
+  window.Chart.defaults.font.family = '"IBM Plex Sans", system-ui, sans-serif';
+  window.Chart.defaults.font.size = 12;
+  window.Chart.defaults.color = '#546170';
+}
 
 const mount = document.getElementById('app');
 const navLinks = [...document.querySelectorAll('[data-nav]')];
@@ -64,7 +70,7 @@ async function refreshGateway() {
     gatewayBadge.innerHTML = badge('gateway : DOWN', 'danger');
     gatewayBadge.title = errorMessage(error);
   }
-  if (lastRefresh) lastRefresh.textContent = `Vérifié à ${formatUtc(new Date())}`;
+  if (lastRefresh) lastRefresh.textContent = `Vérifié à ${formatUtcTime(new Date())} UTC`;
 }
 
 const gatewayPoller = createPoller(refreshGateway, { intervalMs: 10000 });

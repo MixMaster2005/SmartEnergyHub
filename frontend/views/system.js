@@ -20,11 +20,11 @@ import { badge, errorState, statCard } from '../ui.js';
 
 const CAPACITY = 180; // 15 min a 5 s
 const COLORS = {
-  storage: '#0b6bcb',
-  analytics: '#0e9f8a',
-  pending: '#d79b00',
-  danger: '#b42318',
-  neutral: '#64748b',
+  storage: '#0a5f9e',
+  analytics: '#1d7a4b',
+  pending: '#c26a00',
+  danger: '#a8231b',
+  neutral: '#546170',
 };
 
 const QUERIES = [
@@ -68,12 +68,13 @@ function createLineChart(canvas, series) {
       scales: {
         x: {
           type: 'linear',
-          grid: { color: '#eef2f7' },
+          bounds: 'data',
+          grid: { color: '#e4e8ec' },
           ticks: { maxRotation: 0, autoSkip: true, callback: (value) => formatUtcTime(value) },
         },
         y: {
           beginAtZero: true,
-          grid: { color: '#eef2f7' },
+          grid: { color: '#e4e8ec' },
           ticks: { callback: (value) => formatNumber(value, Number.isInteger(value) ? 0 : 1) },
           title: { display: true, text: 'valeur' },
         },
@@ -218,7 +219,7 @@ export async function render({ mount, signal }) {
       statCard({ label: 'Anomalies', value: anomaliesKnown ? formatNumber(anomalies, 0) : 'n/d', hint: 'THRESHOLD + ZSCORE', tone: anomalies > 0 ? 'warn' : 'neutral' }),
     ].join('');
 
-    nodes.at.textContent = `Relevé à ${formatUtc(now)}`;
+    nodes.at.textContent = `Relevé à ${formatUtcTime(now)} UTC`;
   }
 
   function renderTable() {

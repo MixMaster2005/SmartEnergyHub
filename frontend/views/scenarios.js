@@ -198,7 +198,7 @@ docker compose up -d</code></pre>
         ? badge('OK', 'ok')
         : status === 'KO'
           ? badge('KO', 'danger')
-          : badge('NA', 'neutral');
+          : badge('non lancé', 'neutral');
     }
     if (evidenceNode) evidenceNode.textContent = evidence;
   }
@@ -434,16 +434,16 @@ docker compose up -d</code></pre>
 
   const AUTO = [
     { id: 'T01', title: 'T01 — Santé', description: 'Les 5 points d\'entrée répondent UP via la gateway.', run: checkHealth },
-    { id: 'T06', title: 'T06 — Métadonnées MongoDB', description: 'Upsert idempotent du capteur UI-TEST-001 dans sensor-service.', run: checkMetadata },
     { id: 'T02', title: 'T02 — Mesure valide', description: 'POST valide → 202, X-Event-Id, puis mesure visible dans l\'historique.', run: checkValidMeasurement },
     { id: 'T03', title: 'T03 — Champ manquant', description: 'sensorId absent → 400 VALIDATION_ERROR avec la liste des champs.', run: checkMissingField },
     { id: 'T04', title: 'T04 — Valeur invalide', description: 'powerKw en chaîne → 400 MALFORMED_JSON ; corps > 10 Ko → 413.', run: checkInvalidValue },
     { id: 'T04b', title: 'T04b — Bornes temporelles', description: 'Mesure de 25 h → 400 MEASUREMENT_TOO_OLD ; future +10 min → 400.', run: checkTemporalBounds },
+    { id: 'T05', title: 'T05 — Persistance Cassandra', description: 'Mesure relue depuis Cassandra via l\'API storage.', run: checkPersistence },
+    { id: 'T06', title: 'T06 — Métadonnées MongoDB', description: 'Upsert idempotent du capteur UI-TEST-001 dans sensor-service.', run: checkMetadata },
     { id: 'T07', title: 'T07 — Historique', description: 'Lecture ordonnée, puis limit=0 → 400 INVALID_PARAMETER.', run: checkHistory },
     { id: 'T08', title: 'T08 — Moyenne', description: 'Summary horaire avec count et moyenne non nuls après une mesure.', run: checkAverage },
     { id: 'T09', title: 'T09 — Dépassement', description: 'Pic ×3 → anomalie THRESHOLD visible dans /anomalies.', run: checkThreshold },
     { id: 'T11', title: 'T11 — Doublon', description: 'Même mesure deux fois → même X-Event-Id et une seule ligne.', run: checkDuplicate },
-    { id: 'T05', title: 'T05 — Persistance Cassandra', description: 'Mesure relue depuis Cassandra via l\'API storage.', run: checkPersistence },
     { id: 'T13', title: 'T13 — OpenAPI', description: 'Les 4 documents OpenAPI sont servis par la gateway.', run: checkOpenApi },
   ];
 
@@ -451,7 +451,7 @@ docker compose up -d</code></pre>
     return `<article class="scenario" data-scenario="${scenario.id}">
       <div class="scenario__head">
         <h3>${escapeHtml(scenario.title)}</h3>
-        <span data-badge>${badge('NA', 'neutral')}</span>
+        <span data-badge>${badge('non lancé', 'neutral')}</span>
       </div>
       <p class="scenario__desc">${escapeHtml(scenario.description)}</p>
       <div class="scenario__actions">

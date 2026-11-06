@@ -12,6 +12,7 @@ import {
   formatLocal,
   formatNumber,
   formatUtc,
+  formatUtcTime,
   ageMs,
 } from '../format.js';
 import {
@@ -53,7 +54,7 @@ export async function render({ mount, signal }) {
     <div class="page-head">
       <div>
         <h1>Tableau de bord</h1>
-        <p>Santé de la plateforme, état courant des capteurs et flux Redis (CDC §9).</p>
+        <p>Santé des services, flux de mesures et état courant des capteurs.</p>
       </div>
       <div class="page-head__actions">
         <button class="button button--ghost" type="button" data-refresh>Rafraîchir</button>
@@ -123,12 +124,11 @@ export async function render({ mount, signal }) {
         <span class="service__dot" aria-hidden="true"></span>
         <div>
           <div class="service__name">${escapeHtml(service.label)}</div>
-          <div class="service__meta" title="${escapeHtml(detail)}">${up ? 'UP' : escapeHtml(detail)}</div>
+          <div class="service__meta" title="${escapeHtml(detail)}">${up ? 'opérationnel' : escapeHtml(detail)}</div>
         </div>
-        ${badge(up ? 'UP' : 'DOWN', up ? 'ok' : 'danger')}
       </div>`;
     }).join('');
-    nodes.healthAt.textContent = `Vérifié à ${formatUtc(checkedAt)}`;
+    nodes.healthAt.textContent = `Vérifié à ${formatUtcTime(checkedAt)} UTC`;
   }
 
   async function loadSensors(force = false) {
@@ -215,7 +215,7 @@ export async function render({ mount, signal }) {
       }),
     ].join('');
 
-    nodes.metricsAt.textContent = `Relevé à ${formatUtc(new Date())}`;
+    nodes.metricsAt.textContent = `Relevé à ${formatUtcTime(new Date())} UTC`;
   }
 
   function renderSensors() {
@@ -262,7 +262,7 @@ export async function render({ mount, signal }) {
     const staleCount = rows.filter((row) => row.age === null || row.age > STALE_AFTER_MS).length;
     nodes.staleNote.textContent = staleCount ? `${staleCount} sans mesure récente (> 30 s)` : 'toutes les mesures sont fraîches';
 
-    nodes.sensors.innerHTML = rows.map(({ sensor, current, age }) => {
+    nodes.sensors.innerHTML = '<div class="sensor-head" aria-hidden="true"><span>Capteur</span><span>Puissance</span><span>Charge</span><span>Dernière mesure</span></div>' + rows.map(({ sensor, current, age }) => {
       const power = current?.lastPowerKw;
       const max = Number(sensor.maxPowerKw) || 0;
       const ratio = max > 0 && Number.isFinite(power) ? Math.min(power / max, 1.25) : 0;
@@ -272,25 +272,34 @@ export async function render({ mount, signal }) {
       const classes = ['sensor'];
       if (stale && !inactive) classes.push('sensor--stale');
       if (inactive) classes.push('sensor--off');
-      const measured = current?.lastMeasuredAt
-        ? `<span title="${escapeHtml(formatLocal(current.lastMeasuredAt))}">${escapeHtml(formatUtc(current.lastMeasuredAt))} · ${escapeHtml(formatAge(current.lastMeasuredAt))}</span>`
-        : '<span>en attente de première mesure</span>';
+
+
+      const pct = max > 0 && Number.isFinite(power) ? Math.round((power / max) * 100) : null;
+      const lamp = inactive ? 'off' : alert ? 'danger' : stale ? 'warn' : 'ok';
+      const state = inactive ? badge('désactivé', 'neutral')
+        : alert ? badge('seuil dépassé', 'danger')
+        : stale ? badge('sans mesure récente', 'warn', 'Aucune mesure depuis plus de 30 s')
+        : '';
+      // Échelle de la barre : 125 % du seuil ; le trait vertical marque le seuil (80 % de la largeur).
+      const fill = Math.min(Math.round((ratio / 1.25) * 100), 100);
+      const when = current?.lastMeasuredAt
+        ? `<span title="${escapeHtml(formatUtc(current.lastMeasuredAt))} UTC · ${escapeHtml(formatLocal(current.lastMeasuredAt))}">${escapeHtml(formatAge(current.lastMeasuredAt))}</span>`
+        : '<span>en attente de mesure</span>';
 
       return `<a class="${classes.join(' ')}" href="#/sensors/${encodeURIComponent(sensor.sensorId)}">
-        <div class="sensor__top">
-          <span class="sensor__id">${escapeHtml(sensor.sensorId)}</span>
-          ${inactive ? badge('inactif', 'neutral') : ''}
-          ${alert ? badge('seuil dépassé', 'danger') : ''}
-          ${stale && !inactive ? badge('inactif > 30 s', 'warn') : ''}
-        </div>
-        <div class="sensor__name">${escapeHtml(sensor.name || sensor.sensorId)}</div>
-        <div class="sensor__power">${current ? formatKw(power) : '—'}</div>
-        <div class="sensor__bar"><span class="${alert ? 'is-alert' : ''}" style="width:${Math.round(ratio * 100)}%"></span></div>
-        <div class="sensor__meta">
-          <span>${escapeHtml(sensor.building || 'bâtiment non renseigné')}</span>
-          ${max ? `<span>seuil ${formatNumber(max, 1)} kW</span>` : ''}
-        </div>
-        <div class="sensor__meta">${measured}</div>
+        <span class="sensor__who">
+          <span class="sensor__lamp sensor__lamp--${lamp}" aria-hidden="true"></span>
+          <span class="sensor__text">
+            <span class="sensor__name">${escapeHtml(sensor.name || sensor.sensorId)}</span>
+            <span class="sensor__id"><span>${escapeHtml(sensor.sensorId)}</span>${sensor.building ? `<span>${escapeHtml(sensor.building)}</span>` : ''}</span>
+          </span>
+        </span>
+        <span class="sensor__power">${current ? formatKw(power) : '—'}</span>
+        <span class="sensor__load">
+          <span class="sensor__bar"><span class="${alert ? 'is-alert' : ''}" style="width:${fill}%"></span><i title="Seuil"></i></span>
+          <span class="sensor__loadtext">${max ? `${pct === null ? '—' : pct} % du seuil de ${formatNumber(max, 1)} kW` : 'seuil non défini'}</span>
+        </span>
+        <span class="sensor__when">${when}${state}</span>
       </a>`;
     }).join('');
   }
